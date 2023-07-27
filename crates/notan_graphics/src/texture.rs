@@ -32,6 +32,7 @@ pub struct TextureUpdate {
     pub width: i32,
     pub height: i32,
     pub format: TextureFormat,
+    pub premultiplied_alpha: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -109,6 +110,7 @@ pub struct Texture {
     min_filter: TextureFilter,
     mag_filter: TextureFilter,
     frame: Rect,
+    premultiplied_alpha: bool,
     pub(crate) is_render_texture: bool,
 }
 
@@ -123,6 +125,7 @@ impl Texture {
             format,
             min_filter,
             mag_filter,
+            premultiplied_alpha,
             ..
         } = info;
 
@@ -143,6 +146,7 @@ impl Texture {
             min_filter,
             mag_filter,
             frame,
+            premultiplied_alpha,
             is_render_texture: false,
         }
     }
@@ -523,6 +527,7 @@ pub struct TextureUpdater<'a> {
     width: i32,
     height: i32,
     format: TextureFormat,
+    premultiplied_alpha: bool,
     source: Option<TextureUpdaterSourceKind<'a>>,
 }
 
@@ -533,6 +538,7 @@ impl<'a> TextureUpdater<'a> {
         let width = texture.frame.width as _;
         let height = texture.frame.height as _;
         let format = texture.format;
+        let premultiplied_alpha = texture.premultiplied_alpha;
 
         Self {
             device,
@@ -542,6 +548,7 @@ impl<'a> TextureUpdater<'a> {
             width,
             height,
             format,
+            premultiplied_alpha,
             source: None,
         }
     }
@@ -589,6 +596,7 @@ impl<'a> TextureUpdater<'a> {
             width,
             height,
             format,
+            premultiplied_alpha,
             source,
         } = self;
 
@@ -601,6 +609,7 @@ impl<'a> TextureUpdater<'a> {
             width,
             height,
             format,
+            premultiplied_alpha,
         };
 
         device.inner_update_texture(texture, source, info)

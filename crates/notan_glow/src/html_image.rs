@@ -5,7 +5,7 @@ use crate::texture::{
     TexInfo, TextureKey,
 };
 use crate::GlowBackend;
-use glow::Context;
+use glow::{Context, HasContext};
 use notan_graphics::device::DeviceBackend;
 use notan_graphics::texture::{
     TextureBuilder, TextureInfo, TextureSource, TextureUpdate, TextureUpdater,

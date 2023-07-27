@@ -1,7 +1,9 @@
-use crate::texture::{create_texture, TextureKey};
+use crate::texture::{create_texture, texture_format, texture_type, TextureKey};
 use crate::GlowBackend;
+use glow::{HasContext, PixelUnpackData};
 use notan_graphics::color::Color;
-use notan_graphics::{TextureFormat, TextureInfo};
+use notan_graphics::{TextureFormat, TextureInfo, TextureUpdate};
+use wasm_bindgen::JsValue;
 
 pub(crate) fn add_empty_texture(
     backend: &mut GlowBackend,
@@ -117,6 +119,35 @@ pub(crate) fn add_texture_from_bytes(
     let tex = unsafe { create_texture(&backend.gl, Some(&pixels), &info)? };
     let id = backend.add_inner_texture(tex, &info)?;
     Ok((id, info))
+}
+
+pub(crate) fn update_texture_from_bytes(
+    backend: &mut GlowBackend,
+    bytes: &[u8],
+    opts: TextureUpdate,
+) {
+    // let pixels = if opts.premultiplied_alpha {
+    //     web_sys::console::log_1(&JsValue::from_str(">>> premultiplying the data"));
+    //     premultiplied_alpha(bytes)
+    // } else {
+    //     bytes.into()
+    // };
+
+    let gl = &backend.gl;
+    unsafe {
+        gl.tex_sub_image_2d(
+            glow::TEXTURE_2D,
+            0,
+            opts.x_offset,
+            opts.y_offset,
+            opts.width,
+            opts.height,
+            texture_format(&opts.format),
+            texture_type(&opts.format),
+            // PixelUnpackData::Slice(&pixels),
+            PixelUnpackData::Slice(bytes),
+        );
+    }
 }
 
 fn premultiplied_alpha(pixels: &[u8]) -> Vec<u8> {
