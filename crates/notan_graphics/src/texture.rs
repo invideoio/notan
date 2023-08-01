@@ -384,7 +384,7 @@ impl<'a, 'b> TextureBuilder<'a, 'b> {
         self
     }
 
-    /// Generate the mipmaps
+    /// Enable mipmap generation with linear filter
     pub fn with_mipmaps(mut self, enable: bool) -> Self {
         if enable {
             self.info.mipmap_filter = Some(TextureFilter::Linear);
@@ -394,6 +394,7 @@ impl<'a, 'b> TextureBuilder<'a, 'b> {
         self
     }
 
+    /// Set mipmap filtering function
     pub fn with_mipmap_filter(mut self, filter: TextureFilter) -> Self {
         self.info.mipmap_filter = Some(filter);
         self
