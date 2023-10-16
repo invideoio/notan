@@ -24,7 +24,7 @@ pub struct WebBackend {
 
 impl WebBackend {
     pub fn new() -> Result<Self, String> {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        // std::panic::set_hook(Box::new(console_error_panic_hook::hook));
         let events = Rc::new(RefCell::new(EventIterator::new()));
 
         Ok(Self {
