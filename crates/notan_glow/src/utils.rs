@@ -7,12 +7,19 @@ pub(crate) fn create_gl_context(
     antialias: bool,
     transparent: bool,
 ) -> Result<(glow::Context, String), String> {
-    if let Ok(ctx) = create_webgl2_context(win, antialias, transparent) {
-        return Ok((ctx, "webgl2".to_string()));
+    let mut errors = vec![];
+
+    match create_webgl2_context(win, antialias, transparent) {
+        Ok(ctx) => return Ok((ctx, "webgl2".to_string())),
+        Err(e) => errors.push(e),
     }
 
-    let ctx = create_webgl_context(win, antialias, transparent)?;
-    Ok((ctx, "webgl".to_string()))
+    match create_webgl_context(win, antialias, transparent) {
+        Ok(ctx) => return Ok((ctx, "webgl".to_string())),
+        Err(e) => errors.push(e),
+    }
+
+    Err(format!("Failed to create WebGL context: {errors:?}"))
 }
 
 #[cfg(target_arch = "wasm32")]
