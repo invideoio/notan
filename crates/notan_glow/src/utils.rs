@@ -34,10 +34,10 @@ fn create_webgl_context(
     //TODO manage errors
     let gl = win
         .get_context_with_context_options("webgl", webgl_options(antialias, transparent).as_ref())
-        .unwrap()
-        .unwrap()
+        .map_err(|e| format!("Failed to create WebGL context: {e:?}"))?
+        .ok_or_else(|| format!("Failed to create WebGL context"))?
         .dyn_into::<web_sys::WebGlRenderingContext>()
-        .unwrap();
+        .map_err(|e| format!("Failed to cast the context to WebGL context: {e:?}"))?;
 
     let ctx = glow::Context::from_webgl1_context(gl);
     Ok(ctx)
@@ -52,10 +52,10 @@ fn create_webgl2_context(
     //TODO manage errors
     let gl = win
         .get_context_with_context_options("webgl2", webgl_options(antialias, transparent).as_ref())
-        .unwrap()
-        .unwrap()
+        .map_err(|e| format!("Failed to create WebGL2 context: {e:?}"))?
+        .ok_or_else(|| format!("Failed to create WebGL2 context"))?
         .dyn_into::<web_sys::WebGl2RenderingContext>()
-        .unwrap();
+        .map_err(|e| format!("Failed to cast the context to WebGL2 context: {e:?}"))?;
 
     let ctx = glow::Context::from_webgl2_context(gl);
     Ok(ctx)
