@@ -64,7 +64,7 @@ pub trait BackendSystem: Backend {
     }
 
     /// Returns the graphics backend implementation
-    fn get_graphics_backend(&self) -> Box<dyn DeviceBackend>;
+    fn get_graphics_backend(&self) -> Result<Box<dyn DeviceBackend>, String>;
 
     #[cfg(feature = "audio")]
     /// Return the audio backend implementation

@@ -7,12 +7,19 @@ pub(crate) fn create_gl_context(
     antialias: bool,
     transparent: bool,
 ) -> Result<(glow::Context, String), String> {
-    if let Ok(ctx) = create_webgl2_context(win, antialias, transparent) {
-        return Ok((ctx, "webgl2".to_string()));
+    let mut errors = vec![];
+
+    match create_webgl2_context(win, antialias, transparent) {
+        Ok(ctx) => return Ok((ctx, "webgl2".to_string())),
+        Err(e) => errors.push(e),
     }
 
-    let ctx = create_webgl_context(win, antialias, transparent)?;
-    Ok((ctx, "webgl".to_string()))
+    match create_webgl_context(win, antialias, transparent) {
+        Ok(ctx) => return Ok((ctx, "webgl".to_string())),
+        Err(e) => errors.push(e),
+    }
+
+    Err(format!("Failed to create WebGL context: {errors:?}"))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -34,10 +41,10 @@ fn create_webgl_context(
     //TODO manage errors
     let gl = win
         .get_context_with_context_options("webgl", webgl_options(antialias, transparent).as_ref())
-        .unwrap()
-        .unwrap()
+        .map_err(|e| format!("Failed to create WebGL context: {e:?}"))?
+        .ok_or_else(|| format!("Failed to create WebGL context"))?
         .dyn_into::<web_sys::WebGlRenderingContext>()
-        .unwrap();
+        .map_err(|e| format!("Failed to cast the context to WebGL context: {e:?}"))?;
 
     let ctx = glow::Context::from_webgl1_context(gl);
     Ok(ctx)
@@ -52,10 +59,10 @@ fn create_webgl2_context(
     //TODO manage errors
     let gl = win
         .get_context_with_context_options("webgl2", webgl_options(antialias, transparent).as_ref())
-        .unwrap()
-        .unwrap()
+        .map_err(|e| format!("Failed to create WebGL2 context: {e:?}"))?
+        .ok_or_else(|| format!("Failed to create WebGL2 context"))?
         .dyn_into::<web_sys::WebGl2RenderingContext>()
-        .unwrap();
+        .map_err(|e| format!("Failed to cast the context to WebGL2 context: {e:?}"))?;
 
     let ctx = glow::Context::from_webgl2_context(gl);
     Ok(ctx)

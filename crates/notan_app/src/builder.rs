@@ -233,7 +233,8 @@ where
 
         let initialize = backend.initialize(window)?;
 
-        let mut graphics = Graphics::new(backend.get_graphics_backend())?;
+        let graphics_backend = backend.get_graphics_backend()?;
+        let mut graphics = Graphics::new(graphics_backend)?;
 
         #[cfg(feature = "audio")]
         let audio = Audio::new(backend.get_audio_backend())?;

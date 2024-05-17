@@ -182,8 +182,8 @@ impl BackendSystem for EmptyBackend {
         }))
     }
 
-    fn get_graphics_backend(&self) -> Box<dyn DeviceBackend> {
-        Box::<EmptyDeviceBackend>::default()
+    fn get_graphics_backend(&self) -> Result<Box<dyn DeviceBackend>, String> {
+        Ok(Box::<EmptyDeviceBackend>::default())
     }
 
     #[cfg(feature = "audio")]
