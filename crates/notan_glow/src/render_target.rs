@@ -80,12 +80,16 @@ unsafe fn create_fbo(
         _ => None,
     };
 
-    let status = gl.check_framebuffer_status(glow::FRAMEBUFFER);
-    if status != glow::FRAMEBUFFER_COMPLETE {
-        return Err(
-            "Cannot create a render target because the framebuffer is incomplete...".to_string(),
-        );
-    }
+    // Since gl.checkFramebufferStatus causes GPU stall, we commented out these line.
+    // If the framebuffer isn't complete we can't render correctly anyway, so it's safe to skip this.
+    // ref. https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices#avoid_blocking_api_calls_in_production
+    //
+    // let status = gl.check_framebuffer_status(glow::FRAMEBUFFER);
+    // if status != glow::FRAMEBUFFER_COMPLETE {
+    //     return Err(
+    //         "Cannot create a render target because the framebuffer is incomplete...".to_string(),
+    //     );
+    // }
 
     // transparent clear to avoid weird visual glitches
     clear(gl, &Some(Color::TRANSPARENT), &None, &None);
