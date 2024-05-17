@@ -370,11 +370,9 @@ impl WindowBackend for WebWindowBackend {
     fn set_position(&mut self, _x: i32, _y: i32) {}
 
     fn set_size(&mut self, width: i32, height: i32) {
-        if width != self.config.width || height != self.config.height {
-            set_size_dpi(&self.canvas, width as _, height as _);
-            self.config.width = width;
-            self.config.height = height;
-        }
+        set_size_dpi(&self.canvas, width as _, height as _);
+        self.config.width = width;
+        self.config.height = height;
     }
 
     fn set_visible(&mut self, visible: bool) {
