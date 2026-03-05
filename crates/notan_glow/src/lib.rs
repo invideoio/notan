@@ -376,7 +376,19 @@ impl GlowBackend {
         }
     }
 
+    fn set_program_point_size(&self, primitive: &DrawPrimitive) {
+        #[cfg(not(target_arch = "wasm32"))]
+        unsafe {
+            if matches!(primitive, DrawPrimitive::Points) {
+                self.gl.enable(glow::PROGRAM_POINT_SIZE);
+            } else {
+                self.gl.disable(glow::PROGRAM_POINT_SIZE);
+            }
+        }
+    }
+
     fn draw(&mut self, primitive: &DrawPrimitive, offset: i32, count: i32) {
+        self.set_program_point_size(primitive);
         unsafe {
             self.stats.draw_calls += 1;
             match self.using_indices {
@@ -389,6 +401,7 @@ impl GlowBackend {
         }
     }
     fn draw_instanced(&mut self, primitive: &DrawPrimitive, offset: i32, count: i32, length: i32) {
+        self.set_program_point_size(primitive);
         unsafe {
             self.stats.draw_calls += 1;
             match self.using_indices {

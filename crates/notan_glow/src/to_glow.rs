@@ -140,6 +140,7 @@ impl ToGlow for DrawPrimitive {
             DrawPrimitive::TriangleStrip => glow::TRIANGLE_STRIP,
             DrawPrimitive::Lines => glow::LINES,
             DrawPrimitive::LineStrip => glow::LINE_STRIP,
+            DrawPrimitive::Points => glow::POINTS,
         }
     }
 }
