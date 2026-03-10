@@ -377,7 +377,7 @@ impl GlowBackend {
     }
 
     fn set_program_point_size(&self, primitive: &DrawPrimitive) {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios"), not(target_os = "android")))]
         unsafe {
             if matches!(primitive, DrawPrimitive::Points) {
                 self.gl.enable(glow::PROGRAM_POINT_SIZE);
