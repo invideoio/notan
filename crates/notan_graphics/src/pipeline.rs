@@ -438,6 +438,7 @@ impl Default for StencilOptions {
 pub enum DrawPrimitive {
     Lines,
     LineStrip,
+    Points,
     #[default]
     Triangles,
     TriangleStrip,
