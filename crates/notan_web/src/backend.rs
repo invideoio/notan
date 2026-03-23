@@ -112,10 +112,12 @@ impl BackendSystem for WebBackend {
         }))
     }
 
-    fn get_graphics_backend(&self) -> Box<dyn DeviceBackend> {
-        let win = self.window.as_ref().unwrap();
-        let backend =
-            notan_glow::GlowBackend::new(&win.canvas, win.antialias, win.transparent).unwrap();
+    fn get_graphics_backend(&self) -> Result<Box<dyn DeviceBackend>, String> {
+        let win = self
+            .window
+            .as_ref()
+            .ok_or(Err("Failed to get window backend".into()))?;
+        let backend = notan_glow::GlowBackend::new(&win.canvas, win.antialias, win.transparent)?;
         Box::new(backend)
     }
 

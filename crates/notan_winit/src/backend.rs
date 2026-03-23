@@ -293,14 +293,19 @@ impl BackendSystem for WinitBackend {
         }))
     }
 
-    fn get_graphics_backend(&self) -> Box<dyn DeviceBackend> {
-        let ctx = &self.window.as_ref().unwrap().gl_manager.display;
+    fn get_graphics_backend(&self) -> Result<Box<dyn DeviceBackend>, String> {
+        let ctx = &self
+            .window
+            .as_ref()
+            .ok_or_else(|| "Failed to get window ref")?
+            .gl_manager
+            .display;
         let backend = notan_glow::GlowBackend::new(|s| {
             let symbol = CString::new(s).unwrap();
             ctx.get_proc_address(symbol.as_c_str()).cast()
-        })
-        .unwrap();
-        Box::new(backend)
+        })?;
+
+        Ok(Box::new(backend))
     }
 
     #[cfg(feature = "audio")]
