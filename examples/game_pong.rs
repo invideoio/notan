@@ -1,8 +1,8 @@
 use notan::draw::*;
 use notan::prelude::*;
 
-const WIDTH: i32 = 800;
-const HEIGHT: i32 = 580;
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 580;
 const WALL_SIZE: f32 = 20.0;
 const PADDLE_WIDTH: f32 = 30.0;
 const PADDLE_HEIGHT: f32 = PADDLE_WIDTH * 4.0;
@@ -15,7 +15,7 @@ const PI: f32 = std::f32::consts::PI;
 
 #[notan_main]
 fn main() -> Result<(), String> {
-    let win_config = WindowConfig::new().size(WIDTH, HEIGHT).vsync(true);
+    let win_config = WindowConfig::new().set_size(WIDTH, HEIGHT).set_vsync(true);
 
     notan::init_with(State::new)
         .add_config(win_config)
@@ -33,17 +33,17 @@ fn update(app: &mut App, state: &mut State) {
     }
 
     //Move paddle1 with W S
-    if app.keyboard.is_down(KeyCode::W) {
+    if app.keyboard.is_down(KeyCode::KeyW) {
         state.paddle_1.y = (state.paddle_1.y - PADDLE_SPEED * app.timer.delta_f32()).max(WALL_SIZE);
-    } else if app.keyboard.is_down(KeyCode::S) {
+    } else if app.keyboard.is_down(KeyCode::KeyS) {
         state.paddle_1.y = (state.paddle_1.y + PADDLE_SPEED * app.timer.delta_f32())
             .min(HEIGHT as f32 - WALL_SIZE - PADDLE_HEIGHT);
     }
 
     //Move paddle2 with arrows UP DOWN
-    if app.keyboard.is_down(KeyCode::Up) {
+    if app.keyboard.is_down(KeyCode::ArrowUp) {
         state.paddle_2.y = (state.paddle_2.y - PADDLE_SPEED * app.timer.delta_f32()).max(WALL_SIZE);
-    } else if app.keyboard.is_down(KeyCode::Down) {
+    } else if app.keyboard.is_down(KeyCode::ArrowDown) {
         state.paddle_2.y = (state.paddle_2.y + PADDLE_SPEED * app.timer.delta_f32())
             .min(HEIGHT as f32 - WALL_SIZE - PADDLE_HEIGHT);
     }
@@ -109,7 +109,7 @@ fn draw(gfx: &mut Graphics, state: &mut State) {
     draw.rect((0.0, 0.0), (width, WALL_SIZE));
     draw.rect((0.0, height - WALL_SIZE), (width, WALL_SIZE));
 
-    let points = HEIGHT / WALL_SIZE as i32;
+    let points = HEIGHT / WALL_SIZE as u32;
     for i in (0..points).step_by(2) {
         draw.rect(
             (width * 0.5 - WALL_SIZE * 0.5, WALL_SIZE * i as f32),
@@ -208,7 +208,7 @@ impl BoundCalc for Paddle {
 }
 
 fn random_speed(rng: &mut Random) -> f32 {
-    rng.gen_range((BALL_SPEED - BALL_SPEED_THRESHOLD)..(BALL_SPEED + BALL_SPEED_THRESHOLD))
+    rng.random_range((BALL_SPEED - BALL_SPEED_THRESHOLD)..(BALL_SPEED + BALL_SPEED_THRESHOLD))
 }
 
 struct Ball {
@@ -234,9 +234,9 @@ impl Ball {
 
     fn fire(&mut self, rng: &mut Random, left: bool) {
         self.x = if left { 50.0 } else { WIDTH as f32 - 50.0 };
-        self.y = rng.gen_range(WALL_SIZE..(HEIGHT as f32 - WALL_SIZE));
+        self.y = rng.random_range(WALL_SIZE..(HEIGHT as f32 - WALL_SIZE));
 
-        let angle_to_fire: f32 = rng.gen_range(0.0..FIRE_ANGLE_MAX);
+        let angle_to_fire: f32 = rng.random_range(0.0..FIRE_ANGLE_MAX);
         self.speed_from_angle(random_speed(rng), angle_to_fire, left);
     }
 

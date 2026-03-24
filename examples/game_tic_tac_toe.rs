@@ -41,7 +41,7 @@ impl State {
             .unwrap();
 
         let mut rng = Random::default();
-        let turn = if rng.gen_bool(0.5) {
+        let turn = if rng.random_bool(0.5) {
             Player::Cross
         } else {
             Player::Circle
@@ -57,7 +57,7 @@ impl State {
     }
 
     fn reset(&mut self) {
-        self.turn = if self.rng.gen_bool(0.5) {
+        self.turn = if self.rng.random_bool(0.5) {
             Player::Cross
         } else {
             Player::Circle
@@ -70,9 +70,9 @@ impl State {
 
 fn main() -> Result<(), String> {
     let win = WindowConfig::default()
-        .multisampling(8)
-        .size(WIDTH as _, HEIGHT as _)
-        .vsync(true);
+        .set_multisampling(8)
+        .set_size(WIDTH as _, HEIGHT as _)
+        .set_vsync(true);
 
     notan::init_with(State::new)
         .add_config(win)

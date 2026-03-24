@@ -20,27 +20,29 @@ impl std::cmp::PartialEq for CustomPipeline {
     }
 }
 
+#[allow(mismatched_lifetime_syntaxes)]
 pub trait DrawCustomPipeline {
-    fn image_pipeline(&mut self) -> CustomPipelineBuilder;
-    fn shape_pipeline(&mut self) -> CustomPipelineBuilder;
-    fn pattern_pipeline(&mut self) -> CustomPipelineBuilder;
-    fn text_pipeline(&mut self) -> CustomPipelineBuilder;
+    fn image_pipeline(&mut self) -> CustomPipelineBuilder<'_>;
+    fn shape_pipeline(&mut self) -> CustomPipelineBuilder<'_>;
+    fn pattern_pipeline(&mut self) -> CustomPipelineBuilder<'_>;
+    fn text_pipeline(&mut self) -> CustomPipelineBuilder<'_>;
 }
 
+#[allow(mismatched_lifetime_syntaxes)]
 impl DrawCustomPipeline for Draw {
-    fn image_pipeline(&mut self) -> CustomPipelineBuilder {
+    fn image_pipeline(&mut self) -> CustomPipelineBuilder<'_> {
         CustomPipelineBuilder::new(self, CustomPipelineType::Image)
     }
 
-    fn shape_pipeline(&mut self) -> CustomPipelineBuilder {
+    fn shape_pipeline(&mut self) -> CustomPipelineBuilder<'_> {
         CustomPipelineBuilder::new(self, CustomPipelineType::Shape)
     }
 
-    fn pattern_pipeline(&mut self) -> CustomPipelineBuilder {
+    fn pattern_pipeline(&mut self) -> CustomPipelineBuilder<'_> {
         CustomPipelineBuilder::new(self, CustomPipelineType::Pattern)
     }
 
-    fn text_pipeline(&mut self) -> CustomPipelineBuilder {
+    fn text_pipeline(&mut self) -> CustomPipelineBuilder<'_> {
         CustomPipelineBuilder::new(self, CustomPipelineType::Text)
     }
 }

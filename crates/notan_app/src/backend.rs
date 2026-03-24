@@ -49,14 +49,26 @@ pub enum FrameState {
     Skip,
 }
 
+pub trait AppRunner {
+    fn run(&mut self) -> Result<FrameState, String>;
+    fn app(&self) -> &App;
+    fn app_mut(&mut self) -> &mut App;
+}
+
+pub trait AppLoader {
+    fn load(self: Box<Self>) -> Result<Box<dyn AppRunner>, String>;
+    fn backend(&mut self) -> &mut dyn Backend;
+}
+
+/// A closure that initializes and runs the app
+pub trait BackendRunner {
+    fn run(&mut self, app_loader: Box<dyn AppLoader>, config: WindowConfig) -> Result<(), String>;
+}
+
 /// Backend initialization run
 pub trait BackendSystem: Backend {
-    /// Returns a closure where the backend is initialized and the application loops is managed
-    fn initialize<S, R>(&mut self, window: WindowConfig) -> Result<Box<InitializeFn<S, R>>, String>
-    where
-        Self: Backend,
-        S: 'static,
-        R: FnMut(&mut App, &mut S) -> Result<FrameState, String> + 'static;
+    /// Returns a closure that initializes and runs the app
+    fn runner(&self) -> Box<dyn BackendRunner>;
 
     /// Returns a function that load files
     fn get_file_loader(&self) -> LoadFileFn {
@@ -118,7 +130,7 @@ pub trait WindowBackend {
     fn capture_cursor(&self) -> bool;
 
     /// Returns the container size. Meaning the screen size on native
-    /// and the canva's parent element size on `web`
+    /// and the canvas's parent element size on `web`
     fn container_size(&self) -> (i32, i32) {
         self.screen_size()
     }
@@ -130,7 +142,7 @@ pub trait WindowBackend {
     fn dpi(&self) -> f64;
 
     /// Window's height
-    fn height(&self) -> i32 {
+    fn height(&self) -> u32 {
         self.size().1
     }
 
@@ -143,10 +155,13 @@ pub trait WindowBackend {
     /// Returns true if the window is in fullscreen mode
     fn is_fullscreen(&self) -> bool;
 
+    /// Returns true if the window has focus
+    fn is_focused(&self) -> bool;
+
     /// Returns true if the lazy mode is enabled
     fn lazy_loop(&self) -> bool;
 
-    // returns whether you can click through the window
+    /// Returns whether you can click through the window
     fn mouse_passthrough(&mut self) -> bool;
 
     /// Returns the window's position
@@ -167,26 +182,26 @@ pub trait WindowBackend {
     /// Sets the mouse cursor icon
     fn set_cursor(&mut self, cursor: CursorIcon);
 
+    /// Sets the mouse cursor position
+    fn set_cursor_position(&mut self, x: f32, y: f32);
+
     /// Enable or disable the fullscreen mode
     fn set_fullscreen(&mut self, enabled: bool);
 
     /// Enable or disable the lazy mode for the app's loop
     fn set_lazy_loop(&mut self, lazy: bool);
 
-    // sets whether you can click through the window
+    /// Sets whether you can click through the window
     fn set_mouse_passthrough(&mut self, pass_through: bool);
 
     /// Sets the window's position
     fn set_position(&mut self, x: i32, y: i32);
 
     /// Sets the window's size
-    fn set_size(&mut self, width: i32, height: i32);
+    fn set_size(&mut self, width: u32, height: u32);
 
     /// Hide or show the window
     fn set_visible(&mut self, visible: bool);
-
-    /// Returns the window's size
-    fn size(&self) -> (i32, i32);
 
     /// Set the window's title
     fn set_title(&mut self, title: &str);
@@ -194,11 +209,14 @@ pub trait WindowBackend {
     /// Returns current windows title
     fn title(&self) -> &str;
 
+    /// Returns the window's size
+    fn size(&self) -> (u32, u32);
+
     /// Returns if the window is visible
     fn visible(&self) -> bool;
 
     /// Window's width
-    fn width(&self) -> i32 {
+    fn width(&self) -> u32 {
         self.size().0
     }
 

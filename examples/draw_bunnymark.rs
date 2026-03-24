@@ -39,7 +39,10 @@ impl State {
         (0..n).for_each(|_| {
             self.bunnies.push(Bunny {
                 pos: Vec2::ZERO,
-                speed: vec2(self.rng.gen_range(0.0..10.0), self.rng.gen_range(-5.0..5.0)),
+                speed: vec2(
+                    self.rng.random_range(0.0..10.0),
+                    self.rng.random_range(-5.0..5.0),
+                ),
             })
         });
     }
@@ -72,8 +75,8 @@ fn update(app: &mut App, state: &mut State) {
         if b.pos.y > 600.0 {
             b.speed.y *= -0.85;
             b.pos.y = 600.0;
-            if rng.gen::<bool>() {
-                b.speed.y -= rng.gen_range(0.0..6.0);
+            if rng.random::<bool>() {
+                b.speed.y -= rng.random_range(0.0..6.0);
             }
         } else if b.pos.y < 0.0 {
             b.speed.y = 0.0;
@@ -107,7 +110,7 @@ fn draw(app: &mut App, gfx: &mut Graphics, state: &mut State) {
 #[notan_main]
 fn main() -> Result<(), String> {
     notan::init_with(init)
-        .add_config(WindowConfig::new().vsync(true))
+        .add_config(WindowConfig::new().set_vsync(true))
         .add_config(DrawConfig)
         .update(update)
         .draw(draw)

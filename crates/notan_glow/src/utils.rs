@@ -17,11 +17,13 @@ pub(crate) fn create_gl_context(
 
 #[cfg(target_arch = "wasm32")]
 fn webgl_options(antialias: bool, transparent: bool) -> web_sys::WebGlContextAttributes {
-    let mut opts = web_sys::WebGlContextAttributes::new();
-    opts.stencil(true);
-    opts.premultiplied_alpha(false);
-    opts.alpha(transparent);
-    opts.antialias(antialias);
+    let opts = web_sys::WebGlContextAttributes::new();
+    opts.set_stencil(true);
+    opts.set_premultiplied_alpha(false);
+    opts.set_alpha(transparent);
+    opts.set_antialias(antialias);
+    opts.set_power_preference(web_sys::WebGlPowerPreference::HighPerformance);
+    opts.set_fail_if_major_performance_caveat(true);
     opts
 }
 
@@ -31,13 +33,12 @@ fn create_webgl_context(
     antialias: bool,
     transparent: bool,
 ) -> Result<glow::Context, String> {
-    //TODO manage errors
     let gl = win
         .get_context_with_context_options("webgl", webgl_options(antialias, transparent).as_ref())
-        .unwrap()
-        .unwrap()
+        .map_err(|e| format!("{e:?}"))?
+        .ok_or("Cannot acquire the Webgl context. Is the canvas already instantiated?")?
         .dyn_into::<web_sys::WebGlRenderingContext>()
-        .unwrap();
+        .map_err(|_| "Cannot acquire WebGL context.")?;
 
     let ctx = glow::Context::from_webgl1_context(gl);
     Ok(ctx)
@@ -49,13 +50,12 @@ fn create_webgl2_context(
     antialias: bool,
     transparent: bool,
 ) -> Result<glow::Context, String> {
-    //TODO manage errors
     let gl = win
         .get_context_with_context_options("webgl2", webgl_options(antialias, transparent).as_ref())
-        .unwrap()
-        .unwrap()
+        .map_err(|e| format!("{e:?}"))?
+        .ok_or("Cannot acquire the Webgl2 context. Is the canvas already instantiated?")?
         .dyn_into::<web_sys::WebGl2RenderingContext>()
-        .unwrap();
+        .map_err(|_| "Cannot acquire WebGL2 context.")?;
 
     let ctx = glow::Context::from_webgl2_context(gl);
     Ok(ctx)

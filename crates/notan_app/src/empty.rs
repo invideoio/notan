@@ -1,7 +1,5 @@
 use crate::config::WindowConfig;
-use crate::{
-    App, Backend, BackendSystem, CursorIcon, EventIterator, FrameState, InitializeFn, WindowBackend,
-};
+use crate::{Backend, BackendRunner, BackendSystem, CursorIcon, EventIterator, WindowBackend};
 use notan_graphics::prelude::*;
 use std::any::Any;
 
@@ -17,9 +15,10 @@ use notan_audio::AudioBackend;
 #[derive(Default)]
 pub struct EmptyWindowBackend {
     title: String,
-    size: (i32, i32),
+    size: (u32, u32),
     position: (i32, i32),
     is_fullscreen: bool,
+    is_focused: bool,
     is_always_on_top: bool,
     lazy: bool,
     captured: bool,
@@ -53,6 +52,10 @@ impl WindowBackend for EmptyWindowBackend {
         self.is_fullscreen
     }
 
+    fn is_focused(&self) -> bool {
+        self.is_focused
+    }
+
     fn lazy_loop(&self) -> bool {
         self.lazy
     }
@@ -83,6 +86,8 @@ impl WindowBackend for EmptyWindowBackend {
 
     fn set_cursor(&mut self, _cursor: CursorIcon) {}
 
+    fn set_cursor_position(&mut self, _x: f32, _y: f32) {}
+
     fn set_fullscreen(&mut self, enabled: bool) {
         self.is_fullscreen = enabled;
     }
@@ -99,7 +104,7 @@ impl WindowBackend for EmptyWindowBackend {
         self.position = (x, y);
     }
 
-    fn set_size(&mut self, width: i32, height: i32) {
+    fn set_size(&mut self, width: u32, height: u32) {
         self.size = (width, height);
     }
 
@@ -107,7 +112,7 @@ impl WindowBackend for EmptyWindowBackend {
         self.visible = visible;
     }
 
-    fn size(&self) -> (i32, i32) {
+    fn size(&self) -> (u32, u32) {
         self.size
     }
 
@@ -165,21 +170,27 @@ impl Backend for EmptyBackend {
     }
 }
 
-impl BackendSystem for EmptyBackend {
-    fn initialize<S, R>(&mut self, _config: WindowConfig) -> Result<Box<InitializeFn<S, R>>, String>
-    where
-        S: 'static,
-        R: FnMut(&mut App, &mut S) -> Result<FrameState, String> + 'static,
-    {
-        Ok(Box::new(|mut app: App, mut state: S, mut cb: R| {
-            // This function should block with a loop or raf in the platform specific backends
-            // while !app.closed {
-            if let Err(e) = cb(&mut app, &mut state) {
-                log::error!("{}", e);
+struct DefaultRunner;
+
+impl BackendRunner for DefaultRunner {
+    fn run(
+        &mut self,
+        app_loader: Box<dyn crate::AppLoader>,
+        _config: WindowConfig,
+    ) -> Result<(), String> {
+        let mut runner = app_loader.load()?;
+        while !runner.app().closed {
+            if let Err(e) = runner.run() {
+                log::error!("{e}");
             }
-            // }
-            Ok(())
-        }))
+        }
+        Ok(())
+    }
+}
+
+impl BackendSystem for EmptyBackend {
+    fn runner(&self) -> Box<dyn BackendRunner> {
+        Box::new(DefaultRunner)
     }
 
     fn get_graphics_backend(&self) -> Box<dyn DeviceBackend> {
@@ -244,14 +255,14 @@ impl DeviceBackend for EmptyDeviceBackend {
     fn set_buffer_data(&mut self, _id: u64, _data: &[u8]) {}
 
     fn render(&mut self, commands: &[Commands], _target: Option<u64>) {
-        commands.iter().for_each(|cmd| log::info!("{:?}", cmd));
+        commands.iter().for_each(|cmd| log::info!("{cmd:?}"));
     }
 
     fn clean(&mut self, to_clean: &[ResourceId]) {
-        log::info!("{:?}", to_clean);
+        log::info!("{to_clean:?}");
     }
 
-    fn set_size(&mut self, _width: i32, _height: i32) {}
+    fn set_size(&mut self, _width: u32, _height: u32) {}
 
     fn set_dpi(&mut self, _scale_factor: f64) {}
 

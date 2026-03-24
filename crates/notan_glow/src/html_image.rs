@@ -1,5 +1,3 @@
-#![cfg(target_arch = "wasm32")]
-
 use crate::texture::{
     post_create_texture, pre_create_texture, texture_format, texture_internal_format, texture_type,
     TexInfo, TextureKey,
@@ -78,8 +76,8 @@ pub(crate) unsafe fn update_texture_from_html_image(
     gl.tex_sub_image_2d_with_html_image(
         glow::TEXTURE_2D,
         0,
-        opts.x_offset,
-        opts.y_offset,
+        opts.x_offset as _,
+        opts.y_offset as _,
         texture_format(&opts.format), // 3d texture needs another value?
         texture_type(&opts.format),
         image,

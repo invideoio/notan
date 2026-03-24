@@ -86,6 +86,10 @@ impl InnerPipeline {
             set_color_mask(gl, options);
             set_culling(gl, options);
             set_blend_mode(gl, options);
+            #[cfg(not(target_arch = "wasm32"))]
+            set_srgb_space(gl, options);
+            #[cfg(not(target_arch = "wasm32"))]
+            set_point_size_available(gl, options);
         }
     }
 }
@@ -244,6 +248,30 @@ unsafe fn set_blend_mode(gl: &Context, options: &PipelineOptions) {
 }
 
 #[inline(always)]
+#[cfg(not(target_arch = "wasm32"))]
+fn set_srgb_space(gl: &Context, opts: &PipelineOptions) {
+    unsafe {
+        if opts.srgb_space {
+            gl.enable(glow::FRAMEBUFFER_SRGB);
+        } else {
+            gl.disable(glow::FRAMEBUFFER_SRGB);
+        }
+    }
+}
+
+#[inline(always)]
+#[cfg(not(target_arch = "wasm32"))]
+fn set_point_size_available(gl: &Context, opts: &PipelineOptions) {
+    unsafe {
+        if opts.point_size_available {
+            gl.enable(glow::VERTEX_PROGRAM_POINT_SIZE);
+        } else {
+            gl.disable(glow::VERTEX_PROGRAM_POINT_SIZE);
+        }
+    }
+}
+
+#[inline(always)]
 fn clean_pipeline(gl: &Context, pip: InnerPipeline) {
     let InnerPipeline {
         vertex,
@@ -327,8 +355,12 @@ fn create_pipeline(
 
     #[cfg(debug_assertions)]
     {
-        for name in not_used_textures.iter() {
-            panic!("Wrong texture location id: {name}");
+        let unused = not_used_textures
+            .iter()
+            .map(|name| format!("Wrong texture location id: {name}"))
+            .collect::<Vec<_>>();
+        if !unused.is_empty() {
+            panic!("{}", unused.join("\n"));
         }
     }
 

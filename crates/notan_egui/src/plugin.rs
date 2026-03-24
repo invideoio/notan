@@ -18,17 +18,23 @@ pub struct EguiPlugin {
     platform_output: Option<egui::PlatformOutput>,
     latest_evt_was_touch: bool,
     needs_repaint: bool,
+    pixels_per_point: f32,
 }
 
 #[allow(clippy::derivable_impls)]
 impl Default for EguiPlugin {
     fn default() -> Self {
+        let ctx: egui::Context = Default::default();
+        if cfg!(target_arch = "wasm32") {
+            ctx.options_mut(|opt| opt.zoom_with_keyboard = false);
+        }
         Self {
-            ctx: Default::default(),
+            ctx,
             raw_input: Default::default(),
             platform_output: Default::default(),
             latest_evt_was_touch: Default::default(),
             needs_repaint: Default::default(),
+            pixels_per_point: Default::default(),
         }
     }
 }
@@ -39,17 +45,22 @@ impl EguiPlugin {
         self.raw_input.events.push(evt);
     }
 
-    pub fn run(&mut self, run_ui: impl FnOnce(&egui::Context)) -> Output {
+    pub fn run(&mut self, run_ui: impl FnMut(&egui::Context)) -> Output {
         let new_input = self.raw_input.take();
 
         let egui::FullOutput {
             platform_output,
-            repaint_after,
             textures_delta,
             shapes,
+            pixels_per_point,
+            viewport_output,
         } = self.ctx.run(new_input, run_ui);
 
-        let needs_repaint = repaint_after.is_zero();
+        let needs_update_textures = !textures_delta.is_empty();
+        let needs_repaint = viewport_output
+            .values()
+            .any(|output| output.repaint_delay.is_zero())
+            || needs_update_textures;
 
         // On post frame needs repaint is set to false
         // set it again if true after a egui output.
@@ -61,29 +72,23 @@ impl EguiPlugin {
 
         Output {
             ctx: self.ctx.clone(),
-            shapes: RefCell::new(Some(shapes)),
+            shapes: RefCell::new(Some((shapes, pixels_per_point))),
             textures_delta,
             clear_color: None,
-            needs_repaint,
         }
     }
 }
 
 pub struct Output {
     ctx: egui::Context,
-    shapes: RefCell<Option<Vec<egui::epaint::ClippedShape>>>,
+    shapes: RefCell<Option<(Vec<egui::epaint::ClippedShape>, f32)>>,
     textures_delta: egui::TexturesDelta,
     clear_color: Option<Color>,
-    needs_repaint: bool,
 }
 
 impl Output {
     pub fn clear_color(&mut self, color: Color) {
         self.clear_color = Some(color);
-    }
-
-    pub fn needs_repaint(&self) -> bool {
-        self.needs_repaint
     }
 }
 
@@ -100,10 +105,10 @@ impl GfxRenderer for Output {
             "Missing EguiExtension. You may need to add 'EguiConfig' to notan.".to_string()
         })?;
 
-        if let Some(shapes) = self.shapes.borrow_mut().take() {
+        if let Some((shapes, pixels_per_point)) = self.shapes.borrow_mut().take() {
             if self.clear_color.is_some() {
                 let mut clear_renderer = device.create_renderer();
-                clear_renderer.begin(Some(&ClearOptions {
+                clear_renderer.begin(Some(ClearOptions {
                     color: self.clear_color,
                     ..Default::default()
                 }));
@@ -115,11 +120,27 @@ impl GfxRenderer for Output {
                 }
             }
 
-            let meshes = self.ctx.tessellate(shapes);
-            ext.paint_and_update_textures(device, meshes, &self.textures_delta, target)?;
+            let meshes = self.ctx.tessellate(shapes, pixels_per_point);
+            ext.paint_and_update_textures(
+                device,
+                meshes,
+                &self.textures_delta,
+                target,
+                self.ctx.zoom_factor(),
+            )?;
         }
 
         Ok(())
+    }
+}
+
+impl EguiPlugin {
+    fn egui_mouse_pos(&self, app: &App) -> egui::Pos2 {
+        self.egui_pos(app.mouse.x, app.mouse.y)
+    }
+
+    fn egui_pos(&self, x: f32, y: f32) -> egui::Pos2 {
+        egui::Pos2::new(x, y) / self.ctx.zoom_factor()
     }
 }
 
@@ -157,14 +178,13 @@ impl Plugin for EguiPlugin {
             Event::ScreenAspectChange { .. } => {
                 self.ctx.request_repaint();
             }
-            Event::MouseMove { .. } => self.add_event(egui::Event::PointerMoved(egui::Pos2::new(
-                app.mouse.x,
-                app.mouse.y,
-            ))),
+            Event::MouseMove { .. } => {
+                self.add_event(egui::Event::PointerMoved(self.egui_mouse_pos(app)))
+            }
             Event::MouseDown { button, .. } => {
                 if let Some(btn) = to_egui_pointer(button) {
                     self.add_event(egui::Event::PointerButton {
-                        pos: egui::Pos2::new(app.mouse.x, app.mouse.y),
+                        pos: self.egui_mouse_pos(app),
                         button: btn,
                         pressed: true,
                         modifiers,
@@ -174,7 +194,7 @@ impl Plugin for EguiPlugin {
             Event::MouseUp { button, .. } => {
                 if let Some(btn) = to_egui_pointer(button) {
                     self.add_event(egui::Event::PointerButton {
-                        pos: egui::Pos2::new(app.mouse.x, app.mouse.y),
+                        pos: self.egui_mouse_pos(app),
                         button: btn,
                         pressed: false,
                         modifiers,
@@ -189,10 +209,12 @@ impl Plugin for EguiPlugin {
                 if modifiers.ctrl || modifiers.command {
                     let factor = (delta_y / 200.0).exp();
                     self.add_event(egui::Event::Zoom(factor));
-                } else if cfg!(target_os = "macos") && modifiers.shift {
-                    self.add_event(egui::Event::Scroll(egui::vec2(delta_x + delta_y, 0.0)));
                 } else {
-                    self.add_event(egui::Event::Scroll(egui::vec2(*delta_x, *delta_y)));
+                    self.add_event(egui::Event::MouseWheel {
+                        unit: egui::MouseWheelUnit::Point,
+                        delta: self.egui_pos(*delta_x, *delta_y).to_vec2(),
+                        modifiers,
+                    });
                 }
             }
             Event::MouseEnter { .. } => {}
@@ -201,7 +223,9 @@ impl Plugin for EguiPlugin {
                 if let Some(key) = to_egui_key(key) {
                     self.add_event(egui::Event::Key {
                         key,
+                        physical_key: None,
                         pressed: true,
+                        repeat: false,
                         modifiers,
                     })
                 }
@@ -211,7 +235,9 @@ impl Plugin for EguiPlugin {
                 if let Some(key) = to_egui_key(key) {
                     self.add_event(egui::Event::Key {
                         key,
+                        physical_key: None,
                         pressed: false,
+                        repeat: false,
                         modifiers,
                     })
                 }
@@ -251,23 +277,23 @@ impl Plugin for EguiPlugin {
                 device_id: egui::TouchDeviceId(0),
                 id: egui::TouchId(*id),
                 phase: egui::TouchPhase::Start,
-                pos: (*x, *y).into(),
-                force: 0.0,
+                pos: self.egui_pos(*x, *y),
+                force: Some(0.0),
             }),
             Event::TouchMove { id, x, y } => self.add_event(egui::Event::Touch {
                 device_id: egui::TouchDeviceId(0),
                 id: egui::TouchId(*id),
                 phase: egui::TouchPhase::Move,
-                pos: (*x, *y).into(),
-                force: 0.0,
+                pos: self.egui_pos(*x, *y),
+                force: Some(0.0),
             }),
             Event::TouchEnd { id, x, y } => {
                 self.add_event(egui::Event::Touch {
                     device_id: egui::TouchDeviceId(0),
                     id: egui::TouchId(*id),
                     phase: egui::TouchPhase::End,
-                    pos: (*x, *y).into(),
-                    force: 0.0,
+                    pos: self.egui_pos(*x, *y),
+                    force: Some(0.0),
                 });
 
                 is_touch_end = true;
@@ -277,11 +303,12 @@ impl Plugin for EguiPlugin {
                     device_id: egui::TouchDeviceId(0),
                     id: egui::TouchId(*id),
                     phase: egui::TouchPhase::Cancel,
-                    pos: (*x, *y).into(),
-                    force: 0.0,
+                    pos: self.egui_pos(*x, *y),
+                    force: Some(0.0),
                 });
                 is_touch_end = true;
             }
+            _ => {}
         }
 
         self.latest_evt_was_touch = is_touch_end;
@@ -290,14 +317,23 @@ impl Plugin for EguiPlugin {
     }
 
     fn update(&mut self, app: &mut App, _assets: &mut Assets) -> Result<AppFlow, String> {
-        self.raw_input.pixels_per_point = Some(app.window().dpi() as _);
-        self.raw_input.time = Some(app.timer.time_since_init() as _);
+        let dpi = app.window().dpi() as f32;
+        self.pixels_per_point = dpi * self.ctx.zoom_factor();
+        if let Some(viewport) = self
+            .raw_input
+            .viewports
+            .get_mut(&self.raw_input.viewport_id)
+        {
+            viewport.native_pixels_per_point = Some(dpi);
+        }
+
+        self.raw_input.time = Some(app.timer.elapsed_f32() as _);
         self.raw_input.predicted_dt = app.timer.delta_f32();
 
         let (w, h) = app.window().size();
         self.raw_input.screen_rect = Some(egui::Rect {
             min: egui::pos2(0.0, 0.0),
-            max: egui::pos2(w as _, h as _),
+            max: egui::pos2(w as _, h as _) / self.ctx.zoom_factor(),
         });
         Ok(AppFlow::Next)
     }
@@ -311,9 +347,7 @@ impl Plugin for EguiPlugin {
         if let Some(platform_output) = self.platform_output.take() {
             let egui::PlatformOutput {
                 cursor_icon,
-                open_url,
-
-                copied_text,
+                commands,
                 ..
             } = platform_output;
 
@@ -325,21 +359,24 @@ impl Plugin for EguiPlugin {
                 }
             }
 
-            #[cfg(not(feature = "links"))]
-            let _ = open_url;
-
-            #[cfg(feature = "links")]
-            if let Some(OpenUrl { url, new_tab }) = open_url {
-                if new_tab {
-                    app.open_link_new_tab(&url);
-                } else {
-                    app.open_link(&url);
+            commands.iter().for_each(|cmd| match cmd {
+                egui::OutputCommand::CopyText(copied_text) => {
+                    if !copied_text.is_empty() {
+                        app.backend.set_clipboard_text(copied_text);
+                    }
                 }
-            }
 
-            if !copied_text.is_empty() {
-                app.backend.set_clipboard_text(&copied_text);
-            }
+                #[cfg(feature = "links")]
+                egui::OutputCommand::OpenUrl(OpenUrl { url, new_tab }) => {
+                    if *new_tab {
+                        app.open_link_new_tab(url);
+                    } else {
+                        app.open_link(url);
+                    }
+                }
+
+                _ => {}
+            });
         }
 
         self.needs_repaint = false;
@@ -402,11 +439,11 @@ fn is_printable(chr: char, modifiers: &egui::Modifiers) -> bool {
 }
 
 pub trait EguiPluginSugar {
-    fn egui(&mut self, run_ui: impl FnOnce(&egui::Context)) -> Output;
+    fn egui(&mut self, run_ui: impl FnMut(&egui::Context)) -> Output;
 }
 
 impl EguiPluginSugar for Plugins {
-    fn egui(&mut self, run_ui: impl FnOnce(&Context)) -> Output {
+    fn egui(&mut self, run_ui: impl FnMut(&Context)) -> Output {
         let mut ext = self.get_mut::<EguiPlugin>().unwrap();
         ext.run(run_ui)
     }

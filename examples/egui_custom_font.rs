@@ -1,12 +1,14 @@
+use std::sync::Arc;
+
 use notan::egui::{self, *};
 use notan::prelude::*;
 
 #[notan_main]
 fn main() -> Result<(), String> {
     let win = WindowConfig::new()
-        .vsync(true)
-        .lazy_loop(true)
-        .high_dpi(true);
+        .set_vsync(true)
+        .set_lazy_loop(true)
+        .set_high_dpi(true);
 
     notan::init()
         .add_config(win)
@@ -25,10 +27,7 @@ fn draw(gfx: &mut Graphics, plugins: &mut Plugins) {
     });
 
     output.clear_color(Color::BLACK);
-
-    if output.needs_repaint() {
-        gfx.render(&output);
-    }
+    gfx.render(&output);
 }
 
 // Initialize callback is called just once after setup and before the app's loop
@@ -45,7 +44,9 @@ fn setup(ctx: &egui::Context) {
     // .ttf and .otf files supported.
     fonts.font_data.insert(
         "my_font".to_owned(),
-        egui::FontData::from_static(include_bytes!("./assets/Ubuntu-B.ttf")),
+        Arc::new(egui::FontData::from_static(include_bytes!(
+            "./assets/Ubuntu-B.ttf"
+        ))),
     );
 
     // Put my font first (highest priority) for proportional text:

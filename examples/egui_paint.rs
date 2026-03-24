@@ -19,9 +19,9 @@ impl State {
 #[notan_main]
 fn main() -> Result<(), String> {
     let win = WindowConfig::default()
-        .lazy_loop(true)
-        .vsync(true)
-        .high_dpi(true);
+        .set_lazy_loop(true)
+        .set_vsync(true)
+        .set_high_dpi(true);
     notan::init_with(State::new)
         .add_config(win)
         .add_config(EguiConfig)
@@ -58,7 +58,6 @@ fn draw(gfx: &mut Graphics, plugins: &mut Plugins, state: &mut State) {
     });
 
     output.clear_color(Color::BLACK);
-
     gfx.render(&output);
 }
 

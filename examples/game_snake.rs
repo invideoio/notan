@@ -12,7 +12,7 @@ const MIN_MOVEMENT_MS: f32 = 0.02;
 
 #[notan_main]
 fn main() -> Result<(), String> {
-    let win_config = WindowConfig::new().size(800, 600).vsync(true);
+    let win_config = WindowConfig::new().set_size(800, 600).set_vsync(true);
 
     notan::init_with(State::new)
         .add_config(win_config)
@@ -213,7 +213,7 @@ impl State {
 }
 
 fn random_xy(rng: &mut Random) -> (usize, usize) {
-    (rng.gen_range(0..COLS), rng.gen_range(0..ROWS))
+    (rng.random_range(0..COLS), rng.random_range(0..ROWS))
 }
 
 fn xy(index: usize) -> (usize, usize) {
@@ -221,10 +221,10 @@ fn xy(index: usize) -> (usize, usize) {
 }
 
 fn change_direction(keyboard: &Keyboard, state: &mut State) {
-    let up = keyboard.was_pressed(KeyCode::W) || keyboard.was_pressed(KeyCode::Up);
-    let down = keyboard.was_pressed(KeyCode::S) || keyboard.was_pressed(KeyCode::Down);
-    let left = keyboard.was_pressed(KeyCode::A) || keyboard.was_pressed(KeyCode::Left);
-    let right = keyboard.was_pressed(KeyCode::D) || keyboard.was_pressed(KeyCode::Right);
+    let up = keyboard.was_pressed(KeyCode::KeyW) || keyboard.was_pressed(KeyCode::ArrowUp);
+    let down = keyboard.was_pressed(KeyCode::KeyS) || keyboard.was_pressed(KeyCode::ArrowDown);
+    let left = keyboard.was_pressed(KeyCode::KeyA) || keyboard.was_pressed(KeyCode::ArrowLeft);
+    let right = keyboard.was_pressed(KeyCode::KeyD) || keyboard.was_pressed(KeyCode::ArrowRight);
 
     if up && state.dir != Direction::Down {
         state.dir = Direction::Up;

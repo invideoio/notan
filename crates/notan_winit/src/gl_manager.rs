@@ -1,18 +1,18 @@
 use glutin::config::Config as GConfig;
 use glutin::config::{ConfigTemplateBuilder, GlConfig};
 use glutin::context::{
-    ContextApi, ContextAttributesBuilder, GlProfile, NotCurrentGlContextSurfaceAccessor,
-    PossiblyCurrentContext, Version,
+    ContextApi, ContextAttributesBuilder, GlProfile, PossiblyCurrentContext, Version,
 };
 use glutin::display::{Display, GetGlDisplay, GlDisplay};
+use glutin::prelude::NotCurrentGlContext;
 use glutin::surface::{GlSurface, Surface, SurfaceAttributesBuilder, SwapInterval, WindowSurface};
 use glutin_winit::DisplayBuilder;
 use notan_app::WindowConfig;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::HasWindowHandle;
 use std::num::NonZeroU32;
-use winit::event_loop::EventLoop;
+use winit::event_loop::ActiveEventLoop;
 use winit::window::Fullscreen::Borderless;
-use winit::window::{Window, WindowBuilder};
+use winit::window::{Window, WindowAttributes};
 
 enum GlSupport {
     Full(GConfig),
@@ -29,8 +29,8 @@ pub(crate) struct GlManager {
 
 impl GlManager {
     pub fn new(
-        builder: WindowBuilder,
-        event_loop: &EventLoop<()>,
+        builder: WindowAttributes,
+        event_loop: &ActiveEventLoop,
         config: &WindowConfig,
     ) -> Result<Self, String> {
         let mut template = ConfigTemplateBuilder::new().with_transparency(config.transparent);
@@ -45,35 +45,35 @@ impl GlManager {
 
         let needs_transparency = config.transparent;
         let (window, gl_config) = DisplayBuilder::new()
-            .with_window_builder(Some(builder))
+            .with_window_attributes(Some(builder))
             .build(event_loop, template, |configs| {
                 let mut support: Option<GlSupport> = None;
-                configs.into_iter().for_each(|new_conf| match &support {
-                    Some(GlSupport::Full(conf)) => {
-                        let is = check_support(needs_transparency, conf, &new_conf);
-                        if is.full_support && is.more_samples {
-                            support = Some(GlSupport::Full(new_conf));
+                configs.into_iter().for_each(|conf| match &support {
+                    Some(GlSupport::Full(_)) => {
+                        let is = check_support(config.multisampling, needs_transparency, &conf);
+                        if is.full_support && is.req_samples {
+                            support = Some(GlSupport::Full(conf));
                         }
                     }
-                    Some(GlSupport::Srgba(conf)) => {
-                        let is = check_support(needs_transparency, conf, &new_conf);
+                    Some(GlSupport::Srgba(_)) => {
+                        let is = check_support(config.multisampling, needs_transparency, &conf);
                         if is.full_support {
-                            support = Some(GlSupport::Full(new_conf));
-                        } else if is.srgb && is.more_samples {
-                            support = Some(GlSupport::Srgba(new_conf));
+                            support = Some(GlSupport::Full(conf));
+                        } else if is.srgb && is.req_samples {
+                            support = Some(GlSupport::Srgba(conf));
                         }
                     }
-                    Some(GlSupport::Any(conf)) => {
-                        let is = check_support(needs_transparency, conf, &new_conf);
+                    Some(GlSupport::Any(_)) => {
+                        let is = check_support(config.multisampling, needs_transparency, &conf);
                         if is.full_support {
-                            support = Some(GlSupport::Full(new_conf));
+                            support = Some(GlSupport::Full(conf));
                         } else if is.srgb {
-                            support = Some(GlSupport::Srgba(new_conf));
-                        } else if is.more_samples {
-                            support = Some(GlSupport::Any(new_conf));
+                            support = Some(GlSupport::Srgba(conf));
+                        } else if is.req_samples {
+                            support = Some(GlSupport::Any(conf));
                         }
                     }
-                    None => support = Some(GlSupport::Any(new_conf)),
+                    None => support = Some(GlSupport::Any(conf)),
                 });
 
                 match support {
@@ -93,7 +93,11 @@ impl GlManager {
                 format!("{err}: {e}")
             })?;
 
-        let raw_window_handle = window.as_ref().map(|window| window.raw_window_handle());
+        let raw_window_handle = window
+            .as_ref()
+            .map(|window| window.window_handle().map_err(|e| e.to_string()))
+            .transpose()?
+            .map(|handle| handle.as_raw());
         let display = gl_config.display();
 
         let context_attributes = ContextAttributesBuilder::new()
@@ -115,7 +119,7 @@ impl GlManager {
         let window =
             window.ok_or_else(|| "Cannot create a Window for the GL Context.".to_string())?;
         let (width, height): (u32, u32) = window.inner_size().into();
-        let raw_window_handle = window.raw_window_handle();
+        let raw_window_handle = window.window_handle().map_err(|e| e.to_string())?.as_raw();
         let attrs = SurfaceAttributesBuilder::<WindowSurface>::new()
             .with_srgb(Some(true))
             .build(
@@ -199,19 +203,15 @@ impl GlManager {
 }
 
 struct InnerSupport {
-    more_samples: bool,
+    req_samples: bool,
     srgb: bool,
     full_support: bool,
 }
 
-fn check_support(
-    needs_transparency: bool,
-    current_conf: &GConfig,
-    new_conf: &GConfig,
-) -> InnerSupport {
-    let more_samples = new_conf.num_samples() > current_conf.num_samples();
-    let srgb = new_conf.srgb_capable();
-    let supports_transparency = new_conf.supports_transparency().unwrap_or(false);
+fn check_support(required_samples: u8, needs_transparency: bool, conf: &GConfig) -> InnerSupport {
+    let req_samples = conf.num_samples() == required_samples && required_samples != 0;
+    let srgb = conf.srgb_capable();
+    let supports_transparency = conf.supports_transparency().unwrap_or(false);
     let transparency = if needs_transparency {
         supports_transparency
     } else {
@@ -220,7 +220,7 @@ fn check_support(
     let full_support = srgb && transparency;
 
     InnerSupport {
-        more_samples,
+        req_samples,
         srgb,
         full_support,
     }

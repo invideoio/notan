@@ -2,14 +2,14 @@
 
 use notan_core::events::Event;
 use notan_input::keyboard::Keyboard;
-use winit::event::VirtualKeyCode;
 use winit::event::{ElementState, WindowEvent};
+use winit::keyboard::{KeyCode as WinitKeyCode, PhysicalKey};
 
 pub fn process_events(event: &WindowEvent, keyboard: &Keyboard) -> Option<Event> {
     match event {
-        WindowEvent::KeyboardInput { input, .. } => {
-            if let Some(key) = input.virtual_keycode.as_ref() {
-                if input.state == ElementState::Pressed {
+        WindowEvent::KeyboardInput { event, .. } => {
+            if let PhysicalKey::Code(ref key) = event.physical_key {
+                if event.state == ElementState::Pressed {
                     if is_cut(keyboard, key) {
                         return Some(Event::Cut);
                     } else if is_copy(keyboard, key) {
@@ -34,7 +34,7 @@ pub fn process_events(event: &WindowEvent, keyboard: &Keyboard) -> Option<Event>
 pub fn set_clipboard_text(text: &str) {
     if let Some(mut clipboard) = init_arboard() {
         if let Err(err) = clipboard.set_text(text) {
-            log::error!("failed to set_text on clipboard: {}", err);
+            log::error!("failed to set_text on clipboard: {err}");
         }
     }
 }
@@ -44,7 +44,7 @@ fn get_clipboard_text() -> Option<String> {
         return match clipboard.get_text() {
             Ok(text) => Some(text),
             Err(err) => {
-                log::error!("failed to get_text from clipboard: {}", err);
+                log::error!("failed to get_text from clipboard: {err}");
                 None
             }
         };
@@ -53,19 +53,19 @@ fn get_clipboard_text() -> Option<String> {
     None
 }
 
-fn is_cut(keyboard: &Keyboard, keycode: &VirtualKeyCode) -> bool {
-    is_command_pressed(keyboard) && *keycode == VirtualKeyCode::X
-        || (cfg!(target_os = "windows") && keyboard.shift() && *keycode == VirtualKeyCode::Delete)
+fn is_cut(keyboard: &Keyboard, keycode: &WinitKeyCode) -> bool {
+    is_command_pressed(keyboard) && *keycode == WinitKeyCode::KeyX
+        || (cfg!(target_os = "windows") && keyboard.shift() && *keycode == WinitKeyCode::Delete)
 }
 
-fn is_copy(keyboard: &Keyboard, keycode: &VirtualKeyCode) -> bool {
-    is_command_pressed(keyboard) && *keycode == VirtualKeyCode::C
-        || (cfg!(target_os = "windows") && keyboard.ctrl() && *keycode == VirtualKeyCode::Insert)
+fn is_copy(keyboard: &Keyboard, keycode: &WinitKeyCode) -> bool {
+    is_command_pressed(keyboard) && *keycode == WinitKeyCode::KeyC
+        || (cfg!(target_os = "windows") && keyboard.ctrl() && *keycode == WinitKeyCode::Insert)
 }
 
-fn is_paste(keyboard: &Keyboard, keycode: &VirtualKeyCode) -> bool {
-    is_command_pressed(keyboard) && *keycode == VirtualKeyCode::V
-        || (cfg!(target_os = "windows") && keyboard.shift() && *keycode == VirtualKeyCode::Insert)
+fn is_paste(keyboard: &Keyboard, keycode: &WinitKeyCode) -> bool {
+    is_command_pressed(keyboard) && *keycode == WinitKeyCode::KeyV
+        || (cfg!(target_os = "windows") && keyboard.shift() && *keycode == WinitKeyCode::Insert)
 }
 
 // returns true for ⌘ Command on mac and ctrl on others
@@ -83,7 +83,7 @@ fn init_arboard() -> Option<arboard::Clipboard> {
     match arboard::Clipboard::new() {
         Ok(clipboard) => Some(clipboard),
         Err(err) => {
-            log::error!("failed to initialize clipboard: {}", err);
+            log::error!("failed to initialize clipboard: {err}");
             None
         }
     }

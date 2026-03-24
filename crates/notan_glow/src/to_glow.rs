@@ -136,11 +136,11 @@ impl ToGlow for TextureFilter {
 impl ToGlow for DrawPrimitive {
     fn to_glow(&self) -> u32 {
         match self {
+            DrawPrimitive::Points => glow::POINTS,
             DrawPrimitive::Triangles => glow::TRIANGLES,
             DrawPrimitive::TriangleStrip => glow::TRIANGLE_STRIP,
             DrawPrimitive::Lines => glow::LINES,
             DrawPrimitive::LineStrip => glow::LINE_STRIP,
-            DrawPrimitive::Points => glow::POINTS,
         }
     }
 }
