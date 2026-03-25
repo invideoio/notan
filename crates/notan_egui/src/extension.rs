@@ -195,28 +195,7 @@ impl EguiExtension {
                         height as _,
                     )?
                 }
-                egui::ImageData::Font(image) => {
-                    debug_assert_eq!(
-                        image.width() * image.height(),
-                        image.pixels.len(),
-                        "Mismatch between texture size and texel count"
-                    );
-
-                    let data: Vec<u8> = image
-                        .srgba_pixels(None)
-                        .flat_map(|a| a.to_array())
-                        .collect();
-
-                    update_texture(
-                        device,
-                        texture,
-                        &data,
-                        x as _,
-                        y as _,
-                        width as _,
-                        height as _,
-                    )?
-                }
+                _ => unreachable!("Font atlas is always Color since egui 0.32"),
             }
 
             return Ok(());
@@ -234,20 +213,7 @@ impl EguiExtension {
                 let data = bytemuck::cast_slice(image.pixels.as_ref());
                 create_texture(device, data, width as _, height as _)?
             }
-            egui::ImageData::Font(image) => {
-                debug_assert_eq!(
-                    image.width() * image.height(),
-                    image.pixels.len(),
-                    "Mismatch between texture size and texel count"
-                );
-
-                let data: Vec<u8> = image
-                    .srgba_pixels(None)
-                    .flat_map(|a| a.to_array())
-                    .collect();
-
-                create_texture(device, &data, width as _, height as _)?
-            }
+            _ => unreachable!("Font atlas is always Color since egui 0.32"),
         };
 
         self.textures.insert(id, texture);
