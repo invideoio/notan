@@ -91,9 +91,8 @@ impl GlowBackend {
     fn get_default_frame_buffer(_gl: &Context) -> Option<Framebuffer> {
         #[cfg(target_os = "ios")]
         {
-            let default_gl_framebuffer_binding = unsafe {
-                _gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) as u32
-            };
+            let default_gl_framebuffer_binding =
+                unsafe { _gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) as u32 };
             if default_gl_framebuffer_binding != 0 {
                 let non_zero_u32 = NonZeroU32::new(default_gl_framebuffer_binding).unwrap();
                 return Some(NativeFramebuffer(non_zero_u32));
@@ -156,7 +155,7 @@ impl GlowBackend {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn get_gl_texture_id(&self, id: u64) -> Option<u32> {
-        self.textures.get(&id).map(|t| u32::from(t.texture.0.get()))
+        self.textures.get(&id).map(|t| t.texture.0.get())
     }
 
     fn begin(
@@ -180,7 +179,8 @@ impl GlowBackend {
             }
             None => {
                 unsafe {
-                    self.gl.bind_framebuffer(glow::FRAMEBUFFER, self.default_gl_framebuffer);
+                    self.gl
+                        .bind_framebuffer(glow::FRAMEBUFFER, self.default_gl_framebuffer);
                 }
                 self.render_texture_mipmaps = false;
                 (self.size.0, self.size.1, self.dpi)
@@ -243,7 +243,8 @@ impl GlowBackend {
             self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
             self.gl.bind_buffer(glow::UNIFORM_BUFFER, None);
             self.gl.bind_vertex_array(None);
-            self.gl.bind_framebuffer(glow::FRAMEBUFFER, self.default_gl_framebuffer);
+            self.gl
+                .bind_framebuffer(glow::FRAMEBUFFER, self.default_gl_framebuffer);
         }
 
         self.using_indices = None;
@@ -348,7 +349,11 @@ impl GlowBackend {
     }
 
     fn set_program_point_size(&self, primitive: &DrawPrimitive) {
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "ios"),
+            not(target_os = "android")
+        ))]
         unsafe {
             if matches!(primitive, DrawPrimitive::Points) {
                 self.gl.enable(glow::PROGRAM_POINT_SIZE);
@@ -663,7 +668,8 @@ impl DeviceBackend for GlowBackend {
                 let can_read = status == glow::FRAMEBUFFER_COMPLETE;
 
                 let clean = || {
-                    self.gl.bind_framebuffer(glow::FRAMEBUFFER, self.default_gl_framebuffer);
+                    self.gl
+                        .bind_framebuffer(glow::FRAMEBUFFER, self.default_gl_framebuffer);
                     self.gl.delete_framebuffer(fbo);
                 };
 
