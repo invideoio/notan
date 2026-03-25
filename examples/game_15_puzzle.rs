@@ -1,6 +1,7 @@
 use notan::draw::*;
 use notan::prelude::*;
 use notan::random::rand::prelude::*;
+use notan_random::rand;
 
 const COLS: usize = 4;
 const NUMBERS: usize = COLS * COLS;
@@ -13,8 +14,8 @@ const OUTLINE_COLOR: Color = Color::from_rgb(0.0, 0.8, 0.7);
 #[notan_main]
 fn main() -> Result<(), String> {
     let win = WindowConfig::default()
-        .size(BOARD_SIZE as _, BOARD_SIZE as _)
-        .multisampling(8);
+        .set_size(BOARD_SIZE as _, BOARD_SIZE as _)
+        .set_multisampling(8);
 
     notan::init_with(State::new)
         .add_config(win)
@@ -172,7 +173,7 @@ impl Board {
 
         for _ in 0..1000 {
             const DIRS: [(i32, i32); 4] = [(0, -1), (-1, 0), (1, 0), (0, 1)];
-            let (dx, dy) = DIRS.choose(&mut thread_rng()).unwrap();
+            let (dx, dy) = DIRS.choose(&mut rand::rng()).unwrap();
             let x_nxt = x + dx;
             let y_nxt = y + dy;
 

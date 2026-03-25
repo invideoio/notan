@@ -3,6 +3,7 @@
 use crate::epaint::Primitive;
 use crate::plugin::Output;
 use crate::TextureId;
+use egui::load::SizedTexture;
 use egui::{PaintCallbackInfo, Rect};
 use notan_app::{
     BlendFactor, BlendMode, Buffer, CullMode, Device, Graphics, Pipeline, RenderTexture,
@@ -25,12 +26,15 @@ const EGUI_VERTEX: ShaderSource = notan_macro::vertex_shader! {
 
     layout(location = 0) out vec4 v_rgba_in_gamma;
     layout(location = 1) out vec2 v_tc;
+    layout(location = 2) out float v_srgb_enabled;
 
     layout(set = 0, binding = 0) uniform Locals {
         vec2 u_screen_size;
+        float srgb_enabled;
     };
 
     void main() {
+        v_srgb_enabled = srgb_enabled;
         gl_Position = vec4(
             2.0 * a_pos.x / u_screen_size.x - 1.0,
             1.0 - 2.0 * a_pos.y / u_screen_size.y,
@@ -48,17 +52,15 @@ const EGUI_VERTEX: ShaderSource = notan_macro::vertex_shader! {
 const EGUI_FRAGMENT: ShaderSource = notan_macro::fragment_shader! {
     r#"
     #version 450
-    
-    #ifdef GL_ES
-        precision mediump float;
-    #endif
+    precision mediump float;
 
     layout(location = 0) in vec4 v_rgba_in_gamma;
     layout(location = 1) in vec2 v_tc;
-
-    layout(binding = 0) uniform sampler2D u_sampler;
+    layout(location = 2) in float v_srgb_enabled;
 
     layout(location = 0) out vec4 color;
+
+    layout(binding = 0) uniform sampler2D u_sampler;
 
     // 0-1 sRGB gamma  from  0-1 linear
     vec3 srgb_gamma_from_linear(vec3 rgb) {
@@ -74,11 +76,10 @@ const EGUI_FRAGMENT: ShaderSource = notan_macro::fragment_shader! {
     }
 
     void main() {
-    #if SRGB_TEXTURES
-        vec4 texture_in_gamma = srgba_gamma_from_linear(texture(u_sampler, v_tc));
-    #else
         vec4 texture_in_gamma = texture(u_sampler, v_tc);
-    #endif
+        if (v_srgb_enabled == 1.0) {
+            texture_in_gamma = srgba_gamma_from_linear(texture_in_gamma);
+        }
         // Multiply vertex color with texture color (in linear space).
         color = v_rgba_in_gamma * texture_in_gamma;
     }
@@ -123,6 +124,7 @@ impl EguiExtension {
                 BlendFactor::InverseDestinationAlpha,
                 BlendFactor::One,
             ))
+            .with_srgb_space(cfg!(target_arch = "wasm32"))
             .with_cull_mode(CullMode::None)
             .with_texture_location(0, "u_sampler")
             .build()?;
@@ -132,26 +134,31 @@ impl EguiExtension {
         let ebo = gfx.create_index_buffer().build()?;
         let ubo = gfx
             .create_uniform_buffer(0, "Locals")
-            .with_data(&[0.0; 2])
+            .with_data(&[0.0; 3])
             .build()?;
+
+        let mut textures = HashMap::new();
+        let fonts_texture = create_empty_texture(gfx, 0, 0)?;
+        textures.insert(egui::TextureId::default(), fonts_texture);
 
         Ok(Self {
             pipeline,
             vbo,
             ebo,
             ubo,
-            textures: HashMap::new(),
+            textures,
         })
     }
 
-    pub fn add_texture(&mut self, texture: &Texture) -> egui::TextureId {
+    pub fn add_texture(&mut self, texture: &Texture) -> SizedTexture {
         let id = egui::TextureId::User(texture.id());
+        let size: egui::Vec2 = texture.size().into();
         self.textures.insert(id, texture.clone());
-        id
+        SizedTexture { id, size }
     }
 
-    pub fn remove_texture(&mut self, id: egui::TextureId) {
-        self.free_texture(id);
+    pub fn remove_texture(&mut self, id: impl Into<TextureId>) {
+        self.free_texture(id.into());
     }
 
     fn set_texture(
@@ -166,82 +173,42 @@ impl EguiExtension {
         if let Some([x, y]) = delta.pos {
             let texture = self
                 .textures
-                .get_mut(&id)
-                .ok_or_else(|| format!("Failed to find EGUI texture {id:?}"))?;
+                .entry(id)
+                .or_insert_with(|| create_empty_texture(device, width as _, height as _).unwrap());
 
-            match &delta.image {
-                egui::ImageData::Color(image) => {
-                    debug_assert_eq!(
-                        image.width() * image.height(),
-                        image.pixels.len(),
-                        "Mismatch between texture size and texel count"
-                    );
+            let egui::ImageData::Color(image) = &delta.image;
 
-                    let data = bytemuck::cast_slice(image.pixels.as_ref());
-                    update_texture(
-                        device,
-                        texture,
-                        data,
-                        x as _,
-                        y as _,
-                        width as _,
-                        height as _,
-                    )?
-                }
-                egui::ImageData::Font(image) => {
-                    debug_assert_eq!(
-                        image.width() * image.height(),
-                        image.pixels.len(),
-                        "Mismatch between texture size and texel count"
-                    );
+            debug_assert_eq!(
+                image.width() * image.height(),
+                image.pixels.len(),
+                "Mismatch between texture size and texel count"
+            );
 
-                    let data: Vec<u8> = image
-                        .srgba_pixels(None)
-                        .flat_map(|a| a.to_array())
-                        .collect();
-
-                    update_texture(
-                        device,
-                        texture,
-                        &data,
-                        x as _,
-                        y as _,
-                        width as _,
-                        height as _,
-                    )?
-                }
-            }
+            let data = bytemuck::cast_slice(image.pixels.as_ref());
+            update_texture(
+                device,
+                texture,
+                data,
+                x as _,
+                y as _,
+                width as _,
+                height as _,
+            )?;
 
             return Ok(());
         }
 
         // create a new texture
-        let texture = match &delta.image {
-            egui::ImageData::Color(image) => {
-                debug_assert_eq!(
-                    image.width() * image.height(),
-                    image.pixels.len(),
-                    "Mismatch between texture size and texel count"
-                );
+        let egui::ImageData::Color(image) = &delta.image;
 
-                let data = bytemuck::cast_slice(image.pixels.as_ref());
-                create_texture(device, data, width as _, height as _)?
-            }
-            egui::ImageData::Font(image) => {
-                debug_assert_eq!(
-                    image.width() * image.height(),
-                    image.pixels.len(),
-                    "Mismatch between texture size and texel count"
-                );
+        debug_assert_eq!(
+            image.width() * image.height(),
+            image.pixels.len(),
+            "Mismatch between texture size and texel count"
+        );
 
-                let data: Vec<u8> = image
-                    .srgba_pixels(None)
-                    .flat_map(|a| a.to_array())
-                    .collect();
-
-                create_texture(device, &data, width as _, height as _)?
-            }
-        };
+        let data = bytemuck::cast_slice(image.pixels.as_ref());
+        let texture = create_texture(device, data, width as _, height as _)?;
 
         self.textures.insert(id, texture);
         Ok(())
@@ -257,12 +224,13 @@ impl EguiExtension {
         meshes: Vec<egui::ClippedPrimitive>,
         textures_delta: &egui::TexturesDelta,
         target: Option<&RenderTexture>,
+        zoom_factor: f32,
     ) -> Result<(), String> {
         for (id, image_delta) in &textures_delta.set {
             self.set_texture(device, *id, image_delta)?;
         }
 
-        self.paint_primitives(device, meshes, target)?;
+        self.paint_primitives(device, meshes, target, zoom_factor)?;
 
         for &id in &textures_delta.free {
             self.free_texture(id);
@@ -276,13 +244,11 @@ impl EguiExtension {
         device: &mut Device,
         meshes: Vec<egui::ClippedPrimitive>,
         target: Option<&RenderTexture>,
+        zoom_factor: f32,
     ) -> Result<(), String> {
         let (width, height) = target.map_or(device.size(), |rt| {
             (rt.base_width() as _, rt.base_height() as _)
         });
-
-        let uniforms: [f32; 3] = [width as _, height as _, 0.0];
-        device.set_buffer_data(&self.ubo, &uniforms);
 
         for egui::ClippedPrimitive {
             clip_rect,
@@ -291,7 +257,13 @@ impl EguiExtension {
         {
             match primitive {
                 Primitive::Mesh(mesh) => {
-                    self.paint_mesh(device, *clip_rect, mesh, target)?;
+                    self.paint_mesh(
+                        device,
+                        zoom_factor * (*clip_rect),
+                        mesh,
+                        target,
+                        zoom_factor,
+                    )?;
                 }
                 Primitive::Callback(callback) => {
                     let rect = Rect {
@@ -301,8 +273,8 @@ impl EguiExtension {
 
                     if callback.rect.is_positive() {
                         let info = egui::PaintCallbackInfo {
-                            viewport: callback.rect,
-                            clip_rect: rect,
+                            viewport: zoom_factor * callback.rect,
+                            clip_rect: zoom_factor * rect,
                             pixels_per_point: device.dpi() as _,
                             screen_size_px: [width as _, height as _],
                         };
@@ -327,14 +299,30 @@ impl EguiExtension {
         clip_rect: egui::Rect,
         primitive: &egui::Mesh,
         target: Option<&RenderTexture>,
+        zoom_factor: f32,
     ) -> Result<(), String> {
-        let vertices: &[f32] = bytemuck::cast_slice(&primitive.vertices);
-        device.set_buffer_data(&self.vbo, vertices);
-        device.set_buffer_data(&self.ebo, &primitive.indices);
-
         let (width_in_pixels, height_in_pixels) = target.map_or(device.size(), |rt| {
             (rt.base_width() as _, rt.base_height() as _)
         });
+
+        let texture = self
+            .textures
+            .get(&primitive.texture_id)
+            .ok_or_else(|| format!("Invalid EGUI texture id {:?}", &primitive.texture_id))?;
+
+        let is_srgb_texture = matches!(texture.format(), TextureFormat::SRgba8);
+        let srgb_enabled = cfg!(target_arch = "wasm32") && is_srgb_texture;
+        let srgb_as_float = if srgb_enabled { 1.0 } else { 0.0 };
+        let uniforms: [f32; 3] = [
+            (width_in_pixels as f32) / zoom_factor,
+            (height_in_pixels as f32) / zoom_factor,
+            srgb_as_float,
+        ];
+        device.set_buffer_data(&self.ubo, &uniforms);
+
+        let vertices: &[f32] = bytemuck::cast_slice(&primitive.vertices);
+        device.set_buffer_data(&self.vbo, vertices);
+        device.set_buffer_data(&self.ebo, &primitive.indices);
 
         let clip_min_x = clip_rect.min.x;
         let clip_min_y = clip_rect.min.y;
@@ -354,11 +342,6 @@ impl EguiExtension {
 
         let width = clip_max_x - clip_min_x;
         let height = clip_max_y - clip_min_y;
-
-        let texture = self
-            .textures
-            .get(&primitive.texture_id)
-            .ok_or_else(|| format!("Invalid EGUI texture id {:?}", &primitive.texture_id))?;
 
         // render pass
         let mut renderer = device.create_renderer();
@@ -380,18 +363,18 @@ impl EguiExtension {
 }
 
 pub trait EguiRegisterTexture {
-    fn egui_register_texture(&mut self, texture: &Texture) -> egui::TextureId;
-    fn egui_remove_texture(&mut self, id: egui::TextureId);
+    fn egui_register_texture(&mut self, texture: &Texture) -> egui::load::SizedTexture;
+    fn egui_remove_texture(&mut self, id: impl Into<egui::TextureId>);
 }
 
 impl EguiRegisterTexture for Graphics {
-    fn egui_register_texture(&mut self, texture: &Texture) -> TextureId {
+    fn egui_register_texture(&mut self, texture: &Texture) -> SizedTexture {
         self.extension_mut::<Output, EguiExtension>()
             .unwrap()
             .add_texture(texture)
     }
 
-    fn egui_remove_texture(&mut self, id: TextureId) {
+    fn egui_remove_texture(&mut self, id: impl Into<TextureId>) {
         self.extension_mut::<Output, EguiExtension>()
             .unwrap()
             .remove_texture(id);
@@ -402,14 +385,48 @@ impl EguiRegisterTexture for Graphics {
 fn create_texture(
     device: &mut Device,
     data: &[u8],
-    width: i32,
-    height: i32,
+    width: u32,
+    height: u32,
 ) -> Result<Texture, String> {
+    let texture_format = if cfg!(target_arch = "wasm32") {
+        TextureFormat::SRgba8
+    } else {
+        TextureFormat::Rgba32
+    };
+
+    let texture_filter = if cfg!(target_arch = "wasm32") {
+        TextureFilter::Linear
+    } else {
+        TextureFilter::Nearest
+    };
+
     device
         .create_texture()
         .from_bytes(data, width, height)
-        .with_format(TextureFormat::Rgba32)
-        .with_filter(TextureFilter::Linear, TextureFilter::Linear)
+        .with_format(texture_format)
+        .with_filter(texture_filter, texture_filter)
+        .build()
+}
+
+#[inline]
+fn create_empty_texture(device: &mut Device, width: u32, height: u32) -> Result<Texture, String> {
+    let texture_format = if cfg!(target_arch = "wasm32") {
+        TextureFormat::SRgba8
+    } else {
+        TextureFormat::Rgba32
+    };
+
+    let texture_filter = if cfg!(target_arch = "wasm32") {
+        TextureFilter::Linear
+    } else {
+        TextureFilter::Nearest
+    };
+
+    device
+        .create_texture()
+        .from_empty_buffer(width, height)
+        .with_format(texture_format)
+        .with_filter(texture_filter, texture_filter)
         .build()
 }
 
@@ -418,10 +435,10 @@ fn update_texture(
     device: &mut Device,
     texture: &mut Texture,
     data: &[u8],
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
 ) -> Result<(), String> {
     device
         .update_texture(texture)

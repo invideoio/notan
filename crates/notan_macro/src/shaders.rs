@@ -154,7 +154,6 @@ impl quote::ToTokens for ShaderBytes {
 
 pub(crate) fn source_from_spirv(spirv: Vec<u8>) -> Result<TokenStream, String> {
     let webgl2_bytes = spirv_to(&spirv, Output::Webgl2)?;
-    // let wgpu_bytes = spirv_to(&spirv, Output::Wgpu)?;
     let opengl_3_3_bytes = spirv_to(&spirv, Output::OpenGl3_3)?;
     let opengl_es_bytes = spirv_to(&spirv, Output::OpenGl_ES)?;
 
@@ -164,10 +163,7 @@ pub(crate) fn source_from_spirv(spirv: Vec<u8>) -> Result<TokenStream, String> {
                 #[cfg(target_arch = "wasm32")]
                 ("webgl2", &#webgl2_bytes),
 
-                // #[cfg(all(not(target_arch = "wasm32"), feature = "wgpu"))]
-                // ("wgpu", &#wgpu_bytes),
-
-                #[cfg(all(not(target_arch = "wasm32"), not(feature = "wgpu"), not(target_os = "ios")))]
+                #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios"), not(target_os = "android")))]
                 ("opengl", &#opengl_3_3_bytes),
 
                 #[cfg(any(target_os = "ios", target_os = "android"))]
@@ -267,7 +263,7 @@ pub fn read_spirv<R: io::Read + io::Seek>(mut x: R) -> io::Result<Vec<u32>> {
             "input length not divisible by 4",
         ));
     }
-    if size > usize::max_value() as u64 {
+    if size > usize::MAX as u64 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "input too long"));
     }
     let words = (size / 4) as usize;

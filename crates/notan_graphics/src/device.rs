@@ -1,6 +1,6 @@
 use crate::buffer::*;
 use crate::commands::*;
-use crate::glsl_layout::{Std140, Uniform as UniformLayout};
+use crate::crevice::std140::{AsStd140, Std140};
 use crate::limits::Limits;
 use crate::pipeline::*;
 use crate::render_texture::*;
@@ -93,7 +93,7 @@ pub trait DeviceBackend {
     fn clean(&mut self, to_clean: &[ResourceId]);
 
     /// Sets the render size
-    fn set_size(&mut self, width: i32, height: i32);
+    fn set_size(&mut self, width: u32, height: u32);
 
     /// Sets the screen dpi
     fn set_dpi(&mut self, scale_factor: f64);
@@ -146,7 +146,7 @@ impl DropManager {
 }
 
 pub struct Device {
-    size: (i32, i32),
+    size: (u32, u32),
     dpi: f64,
     backend: Box<dyn DeviceBackend>, //TODO generic?
     drop_manager: Arc<DropManager>,
@@ -173,12 +173,12 @@ impl Device {
     }
 
     #[inline]
-    pub fn size(&self) -> (i32, i32) {
+    pub fn size(&self) -> (u32, u32) {
         self.size
     }
 
     #[inline]
-    pub fn set_size(&mut self, width: i32, height: i32) {
+    pub fn set_size(&mut self, width: u32, height: u32) {
         self.size = (width, height);
         self.backend.set_size(width, height);
     }
@@ -206,49 +206,49 @@ impl Device {
 
     /// Creates a Pipeline builder
     #[inline]
-    pub fn create_pipeline(&mut self) -> PipelineBuilder {
+    pub fn create_pipeline(&mut self) -> PipelineBuilder<'_, '_> {
         PipelineBuilder::new(self)
     }
 
     /// Creates a texture builder
     #[inline]
-    pub fn create_texture(&mut self) -> TextureBuilder {
+    pub fn create_texture(&mut self) -> TextureBuilder<'_, '_> {
         TextureBuilder::new(self)
     }
 
     /// Creates a render texture builder
     #[inline]
-    pub fn create_render_texture(&mut self, width: i32, height: i32) -> RenderTextureBuilder {
+    pub fn create_render_texture(&mut self, width: u32, height: u32) -> RenderTextureBuilder<'_> {
         RenderTextureBuilder::new(self, width, height)
     }
 
     /// Creates a vertex buffer builder
     #[inline]
-    pub fn create_vertex_buffer(&mut self) -> VertexBufferBuilder {
+    pub fn create_vertex_buffer(&mut self) -> VertexBufferBuilder<'_> {
         VertexBufferBuilder::new(self)
     }
 
     /// Creates a index buffer builder
     #[inline]
-    pub fn create_index_buffer(&mut self) -> IndexBufferBuilder {
+    pub fn create_index_buffer(&mut self) -> IndexBufferBuilder<'_> {
         IndexBufferBuilder::new(self)
     }
 
     /// Creates a uniform buffer builder
     #[inline]
-    pub fn create_uniform_buffer(&mut self, slot: u32, name: &str) -> UniformBufferBuilder {
+    pub fn create_uniform_buffer(&mut self, slot: u32, name: &str) -> UniformBufferBuilder<'_> {
         UniformBufferBuilder::new(self, slot, name)
     }
 
     /// Update the texture data
     #[inline]
-    pub fn update_texture<'a>(&'a mut self, texture: &'a mut Texture) -> TextureUpdater {
+    pub fn update_texture<'a>(&'a mut self, texture: &'a mut Texture) -> TextureUpdater<'a> {
         TextureUpdater::new(self, texture)
     }
 
     /// Read pixels from a texture
     #[inline]
-    pub fn read_pixels<'a>(&'a mut self, texture: &'a Texture) -> TextureReader {
+    pub fn read_pixels<'a>(&'a mut self, texture: &'a Texture) -> TextureReader<'a> {
         TextureReader::new(self, texture)
     }
 
@@ -291,12 +291,20 @@ impl Device {
         options: PipelineOptions,
     ) -> Result<Pipeline, String> {
         let api = self.backend.api_name();
-        let vertex = vertex_source
-            .get_source(api)
-            .ok_or(format!("Vertex shader for api '{api}' not available."))?;
-        let fragment = fragment_source
-            .get_source(api)
-            .ok_or(format!("Fragment shader for api '{api}' not available."))?;
+        let vertex = match vertex_source.get_source(api) {
+            Some(v) => v,
+            None => {
+                log::warn!("Vertex shader for api '{api}' not available.");
+                &[]
+            }
+        };
+        let fragment = match fragment_source.get_source(api) {
+            Some(f) => f,
+            None => {
+                log::warn!("Fragment shader for api '{api}' not available.");
+                &[]
+            }
+        };
         self.inner_create_pipeline_from_raw(
             vertex,
             fragment,
@@ -458,7 +466,7 @@ impl Device {
     }
 }
 
-pub trait Uniform: UniformLayout {}
+pub trait Uniform: AsStd140 {}
 pub trait BufferData {
     fn upload(&self, device: &mut Device, id: u64);
     fn save_as_bytes(&self, _data: &mut Vec<u8>) {}
@@ -519,11 +527,13 @@ where
     #[inline]
     fn upload(&self, device: &mut Device, id: u64) {
         // TODO check opengl version or driver if it uses std140 to layout or not
-        device.backend.set_buffer_data(id, self.std140().as_raw());
+        device
+            .backend
+            .set_buffer_data(id, self.as_std140().as_bytes());
     }
 
     fn save_as_bytes(&self, data: &mut Vec<u8>) {
-        data.extend_from_slice(self.std140().as_raw());
+        data.extend_from_slice(self.as_std140().as_bytes());
     }
 }
 

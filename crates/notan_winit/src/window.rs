@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use crate::gl_manager::GlManager;
 use notan_app::WindowConfig;
 use notan_app::{CursorIcon, WindowBackend};
-use winit::dpi::{LogicalSize, PhysicalPosition};
-use winit::event_loop::EventLoop;
+use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition};
+use winit::event_loop::ActiveEventLoop;
 use winit::window::Fullscreen::Borderless;
-use winit::window::{CursorGrabMode, CursorIcon as WCursorIcon, Icon, Window, WindowBuilder};
+use winit::window::{CursorGrabMode, CursorIcon as WCursorIcon, Icon, Window, WindowLevel};
 
 pub struct WinitWindowBackend {
     pub(crate) gl_manager: GlManager,
@@ -15,11 +15,11 @@ pub struct WinitWindowBackend {
     cursor: CursorIcon,
     captured: bool,
     visible: bool,
-    high_dpi: bool,
     is_always_on_top: bool,
     mouse_passthrough: bool,
     title: String,
     use_touch_as_mouse: bool,
+    pub(crate) frame_requested: bool,
 }
 
 impl WindowBackend for WinitWindowBackend {
@@ -32,10 +32,6 @@ impl WindowBackend for WinitWindowBackend {
     }
 
     fn dpi(&self) -> f64 {
-        if cfg!(target_os = "macos") && !self.high_dpi {
-            return 1.0;
-        }
-
         self.scale_factor
     }
 
@@ -49,6 +45,10 @@ impl WindowBackend for WinitWindowBackend {
 
     fn is_fullscreen(&self) -> bool {
         self.window().fullscreen().is_some()
+    }
+
+    fn is_focused(&self) -> bool {
+        self.window().has_focus()
     }
 
     fn lazy_loop(&self) -> bool {
@@ -67,6 +67,7 @@ impl WindowBackend for WinitWindowBackend {
     fn request_frame(&mut self) {
         if self.lazy {
             self.window().request_redraw();
+            self.frame_requested = true;
         }
     }
 
@@ -81,7 +82,12 @@ impl WindowBackend for WinitWindowBackend {
     }
 
     fn set_always_on_top(&mut self, enabled: bool) {
-        self.window().set_always_on_top(enabled);
+        let level = if enabled {
+            WindowLevel::AlwaysOnTop
+        } else {
+            WindowLevel::Normal
+        };
+        self.window().set_window_level(level);
         self.is_always_on_top = enabled;
     }
 
@@ -116,9 +122,18 @@ impl WindowBackend for WinitWindowBackend {
                 }
                 Some(icon) => {
                     self.window().set_cursor_visible(true);
-                    self.window().set_cursor_icon(icon);
+                    self.window().set_cursor(icon);
                 }
             }
+        }
+    }
+
+    fn set_cursor_position(&mut self, x: f32, y: f32) {
+        if let Err(e) = self
+            .window()
+            .set_cursor_position(LogicalPosition::new(x, y))
+        {
+            log::error!("Error setting mouse cursor position to x: {x} y: {y} error: {e}");
         }
     }
 
@@ -148,9 +163,10 @@ impl WindowBackend for WinitWindowBackend {
             .set_outer_position(PhysicalPosition::new(x, y));
     }
 
-    fn set_size(&mut self, width: i32, height: i32) {
-        self.window()
-            .set_inner_size(LogicalSize::new(width, height));
+    fn set_size(&mut self, width: u32, height: u32) {
+        let _ = self
+            .window()
+            .request_inner_size(LogicalSize::new(width, height));
     }
 
     fn set_visible(&mut self, visible: bool) {
@@ -160,7 +176,7 @@ impl WindowBackend for WinitWindowBackend {
         }
     }
 
-    fn size(&self) -> (i32, i32) {
+    fn size(&self) -> (u32, u32) {
         let inner = self.window().inner_size();
         let logical = inner.to_logical::<f64>(self.scale_factor);
         (logical.width as _, logical.height as _)
@@ -226,14 +242,19 @@ fn load_icon_from_data(data: &'static [u8]) -> Icon {
 }
 
 impl WinitWindowBackend {
-    pub(crate) fn new(config: WindowConfig, event_loop: &EventLoop<()>) -> Result<Self, String> {
-        let mut builder = WindowBuilder::new()
+    pub(crate) fn new(config: WindowConfig, event_loop: &ActiveEventLoop) -> Result<Self, String> {
+        let level = if config.always_on_top {
+            WindowLevel::AlwaysOnTop
+        } else {
+            WindowLevel::Normal
+        };
+        let mut builder = Window::default_attributes()
             .with_title(&config.title)
             .with_inner_size(LogicalSize::new(config.width, config.height))
             .with_maximized(config.maximized)
             .with_resizable(config.resizable)
             .with_transparent(config.transparent)
-            .with_always_on_top(config.always_on_top)
+            .with_window_level(level)
             .with_visible(config.visible)
             .with_decorations(config.decorations)
             .with_window_icon(load_icon(
@@ -243,7 +264,7 @@ impl WinitWindowBackend {
 
         #[cfg(target_os = "windows")]
         {
-            use winit::platform::windows::WindowBuilderExtWindows;
+            use winit::platform::windows::WindowAttributesExtWindows;
             builder = builder.with_taskbar_icon(load_icon(
                 &config.taskbar_icon_path,
                 &config.taskbar_icon_data,
@@ -252,8 +273,20 @@ impl WinitWindowBackend {
 
         #[cfg(target_os = "macos")]
         {
-            use winit::platform::macos::WindowBuilderExtMacOS;
+            use winit::platform::macos::WindowAttributesExtMacOS;
             builder = builder.with_disallow_hidpi(!config.high_dpi);
+        }
+
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ))]
+        {
+            use winit::platform::wayland::WindowAttributesExtWayland;
+            builder = builder.with_name(config.app_id.clone(), config.app_id.clone());
         }
 
         if let Some((w, h)) = config.min_size {
@@ -262,6 +295,24 @@ impl WinitWindowBackend {
 
         if let Some((w, h)) = config.max_size {
             builder = builder.with_max_inner_size(LogicalSize::new(w, h));
+        }
+
+        if let Some((x, y)) = config.position {
+            #[cfg(not(windows))]
+            let (safe_x, safe_y) = (x, y);
+
+            // This is already done by the OS in Linux/MacOS
+            // Winit no longer allows getting monitors from the event loop, so commenting this out
+            // until the code can be refactored.
+            #[cfg(windows)]
+            let (safe_x, safe_y) = {
+                let clamped_position =
+                    clamp_window_to_sane_position(config.width, config.height, x, y, event_loop);
+
+                (clamped_position.0, clamped_position.1)
+            };
+
+            builder = builder.with_position(LogicalPosition::new(safe_x as f64, safe_y as f64));
         }
 
         let gl_manager = GlManager::new(builder, event_loop, &config)?;
@@ -287,7 +338,6 @@ impl WinitWindowBackend {
         let WindowConfig {
             lazy_loop,
             visible,
-            high_dpi,
             title,
             mouse_passthrough,
             ..
@@ -300,11 +350,11 @@ impl WinitWindowBackend {
             cursor: CursorIcon::Default,
             captured: false,
             visible,
-            high_dpi,
             is_always_on_top: false,
             mouse_passthrough,
             title,
             use_touch_as_mouse: false,
+            frame_requested: false,
         })
     }
 
@@ -327,7 +377,7 @@ fn winit_cursor(cursor: CursorIcon) -> Option<WCursorIcon> {
         CursorIcon::Default => WCursorIcon::Default,
         CursorIcon::ContextMenu => WCursorIcon::ContextMenu,
         CursorIcon::Help => WCursorIcon::Help,
-        CursorIcon::PointingHand => WCursorIcon::Hand,
+        CursorIcon::PointingHand => WCursorIcon::Pointer,
         CursorIcon::Progress => WCursorIcon::Progress,
         CursorIcon::Wait => WCursorIcon::Wait,
         CursorIcon::Cell => WCursorIcon::Cell,
@@ -359,4 +409,66 @@ fn winit_cursor(cursor: CursorIcon) -> Option<WCursorIcon> {
         CursorIcon::ResizeColumn => WCursorIcon::ColResize,
         CursorIcon::ResizeRow => WCursorIcon::RowResize,
     })
+}
+
+#[cfg(windows)]
+fn clamp_window_to_sane_position(
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+    event_loop: &ActiveEventLoop,
+) -> (i32, i32) {
+    let monitors = event_loop.available_monitors();
+    // default to primary monitor, in case the correct monitor was disconnected.
+    let mut active_monitor = if let Some(active_monitor) = event_loop
+        .primary_monitor()
+        .or_else(|| event_loop.available_monitors().next())
+    {
+        active_monitor
+    } else {
+        return (x, y); // no monitors 🤷
+    };
+
+    for monitor in monitors {
+        let monitor_x_range = (monitor.position().x - width as i32)
+            ..(monitor.position().x + monitor.size().width as i32);
+        let monitor_y_range = (monitor.position().y - height as i32)
+            ..(monitor.position().y + monitor.size().height as i32);
+
+        if monitor_x_range.contains(&x) && monitor_y_range.contains(&y) {
+            active_monitor = monitor;
+        }
+    }
+
+    let mut inner_size_pixels = (
+        width as f32 * active_monitor.scale_factor() as f32,
+        height as f32 * active_monitor.scale_factor() as f32,
+    );
+
+    // Add size of title bar. This is 32 px by default in Win 10/11.
+    if cfg!(target_os = "windows") {
+        inner_size_pixels.1 += 32.0 * active_monitor.scale_factor() as f32;
+    }
+
+    let monitor_position = (
+        active_monitor.position().x as f32,
+        active_monitor.position().y as f32,
+    );
+
+    let monitor_size = active_monitor.size();
+
+    // To get the maximum position, we get the rightmost corner of the display, then subtract
+    // the size of the window to get the bottom right most value window.position can have.
+
+    let clamped_x = x.clamp(
+        monitor_position.0 as i32,
+        monitor_position.0 as i32 + monitor_size.width as i32 - inner_size_pixels.0 as i32,
+    );
+    let clamped_y = y.clamp(
+        monitor_position.1 as i32,
+        monitor_position.1 as i32 + monitor_size.height as i32 - inner_size_pixels.1 as i32,
+    );
+
+    (clamped_x, clamped_y)
 }

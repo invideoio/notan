@@ -46,7 +46,7 @@ impl DrawManager {
         self.renderer.commands()
     }
 
-    pub fn create_draw(&self, width: i32, height: i32) -> Draw {
+    pub fn create_draw(&self, width: u32, height: u32) -> Draw {
         Draw::new(width, height)
     }
 
@@ -129,7 +129,7 @@ fn process_glyphs(
 ) {
     if let Some(indices) = &draw.text_batch_indices {
         let batch_len = draw.batches.len();
-        let mut last_index = std::usize::MAX;
+        let mut last_index = usize::MAX;
         indices.iter().for_each(|i| {
             let n = *i;
             if n == last_index {
@@ -171,7 +171,7 @@ fn process_draw(
     manager.text_painter.clear();
 
     let stencil = draw.needs_to_clean_stencil.then_some(0x00);
-    manager.renderer.begin(Some(&ClearOptions {
+    manager.renderer.begin(Some(ClearOptions {
         color: draw.clear_color,
         stencil,
         ..Default::default()
@@ -259,11 +259,11 @@ fn blended_pip(
     pip: &Pipeline,
     blend_mode: Option<BlendMode>,
     alpha_mode: Option<BlendMode>,
-    is_rt: bool,
+    _is_rt: bool,
 ) -> Option<Pipeline> {
     // commented the following code because blank frames were shown
     // drawing to a rt needs over mode
-    // let alpha_mode = alpha_mode.or(if is_rt { Some(BlendMode::OVER) } else { None });
+    // let alpha_mode = alpha_mode.or(if _is_rt { Some(BlendMode::OVER) } else { None });
     let new_cbm = pip.options.color_blend != blend_mode;
     let new_abm = pip.options.alpha_blend != alpha_mode;
     if new_cbm || new_abm {

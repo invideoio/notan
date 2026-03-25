@@ -6,8 +6,7 @@ use notan::prelude::*;
 struct State {
     cube: Cube,
     render_texture: RenderTexture,
-    tex_id: egui::TextureId,
-    img_size: egui::Vec2,
+    sized_texture: SizedTexture,
 }
 
 impl State {
@@ -20,22 +19,22 @@ impl State {
             .build()
             .unwrap();
 
-        let img_size = render_texture.size().into();
-        let tex_id = gfx.egui_register_texture(&render_texture);
+        let sized_texture = gfx.egui_register_texture(&render_texture);
 
         Self {
-            img_size,
-            tex_id,
             cube,
             render_texture,
+            sized_texture,
         }
     }
 }
 
 #[notan_main]
 fn main() -> Result<(), String> {
+    let win = WindowConfig::default().set_vsync(true).set_high_dpi(true);
+
     notan::init_with(State::new)
-        .add_config(WindowConfig::new().vsync(true).high_dpi(true))
+        .add_config(win)
         .add_config(EguiConfig)
         .draw(draw)
         .build()
@@ -47,12 +46,11 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
 
     let mut output = plugins.egui(|ctx| {
         egui::Window::new("Notan Render Texture").show(ctx, |ui| {
-            ui.image(state.tex_id, state.img_size);
+            ui.image(state.sized_texture);
         });
     });
-    output.clear_color(Color::BLACK);
 
-    // output.needs_repaint is not checked because our render texture needs to be always draw
+    output.clear_color(Color::BLACK);
     gfx.render(&output);
 }
 
@@ -203,7 +201,7 @@ impl Cube {
         gfx.set_buffer_data(&self.uniform_buffer, &rotated_matrix(self.mvp, self.angle));
 
         let mut renderer = gfx.create_renderer();
-        renderer.begin(Some(&ClearOptions {
+        renderer.begin(Some(ClearOptions {
             color: Some(Color::new(0.1, 0.2, 0.3, 1.0)),
             depth: Some(1.0),
             ..Default::default()

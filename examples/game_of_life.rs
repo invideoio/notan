@@ -63,7 +63,7 @@ fn main() -> Result<(), String> {
     let width = WIDTH * 4;
     let height = HEIGHT * 4;
 
-    let win_config = WindowConfig::new().size(width as _, height as _);
+    let win_config = WindowConfig::new().set_size(width as _, height as _);
 
     notan::init_with(setup)
         .initialize(init)
@@ -96,8 +96,8 @@ fn setup(gfx: &mut Graphics) -> State {
 fn init(state: &mut State) {
     let mut rng = Random::default();
     for _ in 0..500 {
-        let x = rng.gen_range(0..WIDTH);
-        let y = rng.gen_range(0..HEIGHT);
+        let x = rng.random_range(0..WIDTH);
+        let y = rng.random_range(0..HEIGHT);
 
         let neighbors = get_neighbors(x as _, y as _);
         neighbors.iter().for_each(|(x, y)| {

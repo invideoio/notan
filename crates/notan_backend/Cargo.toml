@@ -1,24 +1,24 @@
 [package]
 name = "notan_backend"
-version = "0.9.5"
-authors = ["Nazarí González <nazari.nz@gmail.com>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 readme = "README.md"
-homepage = "https://github.com/Nazariglez/notan"
-repository = "https://github.com/Nazariglez/notan"
-license = "MIT OR Apache-2.0"
 description = "Provides a default backend for Notan"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-notan_web = { path = "../notan_web", version = "0.9.5" }
+notan_web.workspace = true
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "ios")))'.dependencies]
-notan_winit = { path = "../notan_winit", version = "0.9.5" }
+notan_winit.workspace = true
 
 [target.'cfg(target_os = "ios")'.dependencies]
-notan_app = { path = "../notan_app", version = "0.9.2" }
+notan_app.workspace = true
 
 [features]
 audio = ["notan_web/audio", "notan_winit/audio"]

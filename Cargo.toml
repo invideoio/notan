@@ -1,43 +1,85 @@
 [package]
 name = "notan"
-version = "0.9.5"
-authors = ["Nazarí González <nazari.nz@gmail.com>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 categories = ["graphics", "rendering", "wasm", "gui", "multimedia"]
 keywords = ["notan", "engine", "gamedev", "gui", "windowing"]
 exclude = ["docs/**/*", "scripts/**/*", "crates/**/*"]
 readme = "README.md"
-homepage = "https://github.com/Nazariglez/notan"
-repository = "https://github.com/Nazariglez/notan"
-license = "MIT OR Apache-2.0"
 description = "A simple portable multimedia layer to create apps or games easily"
 
-[package.metadata.docs.rs]
-features = ["default", "glyph", "egui", "text", "extra", "audio", "links", "drop_files", "clipboard", "save_file", "texture_to_file"]
+[workspace]
+members = ["crates/*", "xtask"]
 
-[profile.release]
-lto = true
+[workspace.package]
+version = "0.14.0"
+authors = ["Nazarí González <nazari.nz@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/Nazariglez/notan"
+repository = "https://github.com/Nazariglez/notan"
+edition = "2021"
+
+[workspace.dependencies]
+notan_core = { path = "crates/notan_core", version = "0.14.0" }
+notan_input = { path = "crates/notan_input", version = "0.14.0" }
+notan_app = { path = "crates/notan_app", version = "0.14.0" }
+notan_macro = { path = "crates/notan_macro", version = "0.14.0" }
+notan_math = { path = "crates/notan_math", version = "0.14.0" }
+notan_graphics = { path = "crates/notan_graphics", version = "0.14.0" }
+notan_utils = { path = "crates/notan_utils", version = "0.14.0" }
+notan_log = { path = "crates/notan_log", version = "0.14.0" }
+notan_glyph = { path = "crates/notan_glyph", version = "0.14.0" }
+notan_draw = { path = "crates/notan_draw", version = "0.14.0" }
+notan_backend = { path = "crates/notan_backend", version = "0.14.0" }
+notan_egui = { path = "crates/notan_egui", version = "0.14.0" }
+notan_text = { path = "crates/notan_text", version = "0.14.0" }
+notan_audio = { path = "crates/notan_audio", version = "0.14.0" }
+notan_extra = { path = "crates/notan_extra", version = "0.14.0" }
+notan_random = { path = "crates/notan_random", version = "0.14.0" }
+notan_winit = { path = "crates/notan_winit", version = "0.14.0" }
+notan_web = { path = "crates/notan_web", version = "0.14.0" }
+notan_glow = { path = "crates/notan_glow", version = "0.14.0" }
+notan_oddio = { path = "crates/notan_oddio", version = "0.14.0" }
+
+log = "0.4.25"
+hashbrown = "0.16.1"
+parking_lot = "0.12.3"
+bytemuck = "1.21.0"
+serde = { version = "1.0", features = ["serde_derive"] }
+image = { version = "0.25.5", default-features = false, features = [
+    "jpeg",
+    "png",
+    "ico",
+] }
+
+# wasm deps
+wasm-bindgen = "0.2.100"
+wasm-bindgen-futures = "0.4.50"
+futures-util = "0.3.31"
+web-sys = "0.3.77"
+js-sys = "0.3.77"
 
 [dependencies]
-notan_core = { path = "crates/notan_core", version = "0.9.5" }
-notan_input = { path = "crates/notan_input", version = "0.9.5" }
-notan_app = { path = "crates/notan_app", version = "0.9.5" }
-notan_macro = { path = "crates/notan_macro", version = "0.9.5" }
-notan_math = { path = "crates/notan_math", version = "0.9.5" }
-notan_graphics = { path = "crates/notan_graphics", version = "0.9.5" }
-notan_utils = { path = "crates/notan_utils", version = "0.9.5" }
-notan_log = { path = "crates/notan_log", version = "0.9.5", optional = true }
-notan_glyph = { path = "crates/notan_glyph", version = "0.9.5", optional = true }
-notan_draw = { path = "crates/notan_draw", version = "0.9.5", optional = true }
-notan_backend = { path = "crates/notan_backend", version = "0.9.5", optional = true }
-notan_egui = { path = "crates/notan_egui", version = "0.9.5", optional = true }
-notan_text = { path = "crates/notan_text", version = "0.9.5", optional = true }
-notan_audio = { path = "crates/notan_audio", version = "0.9.5", optional = true }
-notan_extra = { path = "crates/notan_extra", version = "0.9.5", optional = true }
-notan_random = { path = "crates/notan_random", version = "0.9.5", optional = true }
-
-[workspace]
-members = ["crates/*"]
+notan_core.workspace = true
+notan_input.workspace = true
+notan_app.workspace = true
+notan_macro.workspace = true
+notan_math.workspace = true
+notan_graphics.workspace = true
+notan_utils.workspace = true
+notan_log = { workspace = true, optional = true }
+notan_glyph = { workspace = true, optional = true }
+notan_draw = { workspace = true, optional = true }
+notan_backend = { workspace = true, optional = true }
+notan_egui = { workspace = true, optional = true }
+notan_text = { workspace = true, optional = true }
+notan_audio = { workspace = true, optional = true }
+notan_extra = { workspace = true, optional = true }
+notan_random = { workspace = true, optional = true }
 
 [features]
 default = ["backend", "log", "draw", "random", "shaderc"]
@@ -50,18 +92,59 @@ text = ["notan_text"]
 extra = ["notan_extra"]
 audio = ["notan_audio", "notan_app/audio", "notan_backend?/audio"]
 links = ["notan_app/links", "notan_backend?/links", "notan_egui?/links"]
-drop_files = ["notan_app/drop_files", "notan_backend?/drop_files", "notan_egui?/drop_files"]
+drop_files = [
+    "notan_app/drop_files",
+    "notan_backend?/drop_files",
+    "notan_egui?/drop_files",
+]
 clipboard = ["notan_app/clipboard", "notan_backend?/clipboard"]
 save_file = ["notan_utils/save_file"]
 texture_to_file = ["notan_graphics/texture_to_file"]
 random = ["notan_random"]
-glsl-to-spirv = ["notan_macro/glsl-to-spirv"]
-shaderc = ["notan_macro/shaderc"]
-serde = ["notan_app/serde", "notan_math/serde", "notan_core/serde", "notan_input/serde"]
+glsl-to-spirv = [
+    "notan_macro/glsl-to-spirv",
+    "notan_glyph?/glsl-to-spirv",
+    "notan_draw?/glsl-to-spirv",
+    "notan_egui?/glsl-to-spirv",
+    "notan_text?/glsl-to-spirv",
+]
+shaderc = [
+    "notan_macro/shaderc",
+    "notan_glyph?/shaderc",
+    "notan_draw?/shaderc",
+    "notan_egui?/shaderc",
+    "notan_text?/shaderc",
+]
+serde = [
+    "notan_app/serde",
+    "notan_math/serde",
+    "notan_core/serde",
+    "notan_input/serde",
+    "notan_graphics/serde",
+    "notan_egui?/serde",
+]
+
+[package.metadata.docs.rs]
+features = [
+    "default",
+    "glyph",
+    "egui",
+    "text",
+    "extra",
+    "audio",
+    "links",
+    "drop_files",
+    "clipboard",
+    "save_file",
+    "texture_to_file",
+]
+
+[profile.release]
+lto = true
 
 [dev-dependencies]
-egui_demo_lib = "0.20.0"
-bytemuck = "1.13.0"
+egui_demo_lib = "0.33.0"
+bytemuck = "1.21.0"
 
 [[example]]
 name = "app_drop_file"
@@ -156,6 +239,10 @@ name = "draw_pattern"
 required-features = ["draw"]
 
 [[example]]
+name = "draw_points"
+required-features = ["draw"]
+
+[[example]]
 name = "draw_projection"
 required-features = ["draw"]
 
@@ -197,6 +284,10 @@ required-features = ["draw"]
 
 [[example]]
 name = "egui_basic"
+required-features = ["egui"]
+
+[[example]]
+name = "egui_custom_font"
 required-features = ["egui"]
 
 [[example]]

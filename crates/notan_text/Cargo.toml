@@ -1,21 +1,28 @@
 [package]
 name = "notan_text"
-version = "0.9.5"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 readme = "README.md"
-homepage = "https://github.com/Nazariglez/notan"
-repository = "https://github.com/Nazariglez/notan"
-license = "MIT OR Apache-2.0"
 description = "Provides a simple Text API for Notan"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-notan_app = { path = "../notan_app", version = "0.9.5" }
-notan_graphics = { path = "../notan_graphics", version = "0.9.5" }
-notan_glyph = { path = "../notan_glyph", version = "0.9.5" }
-notan_math = { path = "../notan_math", version = "0.9.5" }
-log = "0.4.17"
-lazy_static = "1.4.0"
-parking_lot = "0.12.1"
-hashbrown = "0.13.2"
+notan_app.workspace = true
+notan_graphics.workspace = true
+notan_glyph.workspace = true
+notan_math.workspace = true
+
+log.workspace = true
+parking_lot.workspace = true
+hashbrown.workspace = true
+
+lazy_static = "1.5.0"
+
+[features]
+glsl-to-spirv = ["notan_glyph/glsl-to-spirv"]
+shaderc = ["notan_glyph/shaderc"]

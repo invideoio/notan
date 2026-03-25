@@ -11,7 +11,9 @@ const ACCELERATION_BY_LINE: f32 = 0.02;
 
 #[notan_main]
 fn main() -> Result<(), String> {
-    let win_config = WindowConfig::new().size(500, TILE_SIZE * ROWS).vsync(true);
+    let win_config = WindowConfig::new()
+        .set_size(500, (TILE_SIZE * ROWS) as _)
+        .set_vsync(true);
 
     notan::init_with(State::new)
         .add_config(win_config)
@@ -24,10 +26,13 @@ fn main() -> Result<(), String> {
 fn update(app: &mut App, state: &mut State) {
     state.time += app.timer.delta_f32();
 
-    let down = app.keyboard.was_pressed(KeyCode::Down) || app.keyboard.was_pressed(KeyCode::S);
-    let up = app.keyboard.was_pressed(KeyCode::Up) || app.keyboard.was_pressed(KeyCode::W);
-    let left = app.keyboard.was_pressed(KeyCode::Left) || app.keyboard.was_pressed(KeyCode::A);
-    let right = app.keyboard.was_pressed(KeyCode::Right) || app.keyboard.was_pressed(KeyCode::D);
+    let down =
+        app.keyboard.was_pressed(KeyCode::ArrowDown) || app.keyboard.was_pressed(KeyCode::KeyS);
+    let up = app.keyboard.was_pressed(KeyCode::ArrowUp) || app.keyboard.was_pressed(KeyCode::KeyW);
+    let left =
+        app.keyboard.was_pressed(KeyCode::ArrowLeft) || app.keyboard.was_pressed(KeyCode::KeyA);
+    let right =
+        app.keyboard.was_pressed(KeyCode::ArrowRight) || app.keyboard.was_pressed(KeyCode::KeyD);
 
     if down {
         state.move_to(MoveTo::Down);
@@ -457,7 +462,7 @@ fn index(x: i32, y: i32) -> usize {
 
 fn create_texture(gfx: &mut Graphics) -> Texture {
     let rt = gfx
-        .create_render_texture(TILE_SIZE, TILE_SIZE)
+        .create_render_texture(TILE_SIZE as _, TILE_SIZE as _)
         .build()
         .unwrap();
 

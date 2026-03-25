@@ -156,6 +156,18 @@ impl<'a, 'b> PipelineBuilder<'a, 'b> {
         self
     }
 
+    /// Enable the SRGB Color Space
+    pub fn with_srgb_space(mut self, srgb: bool) -> Self {
+        self.options.srgb_space = srgb;
+        self
+    }
+
+    /// Enable the availability of gl_PointSize in the vertex shader
+    pub fn with_point_size_available(mut self, enabled: bool) -> Self {
+        self.options.point_size_available = enabled;
+        self
+    }
+
     /// Build the pipeline with the data set on the builder
     pub fn build(self) -> Result<Pipeline, String> {
         match self.shaders {
@@ -351,6 +363,8 @@ pub struct PipelineOptions {
     pub depth_stencil: DepthStencil,
     pub color_mask: ColorMask,
     pub stencil: Option<StencilOptions>,
+    pub srgb_space: bool,
+    pub point_size_available: bool,
 }
 
 impl Default for PipelineOptions {
@@ -362,6 +376,8 @@ impl Default for PipelineOptions {
             alpha_blend: None,
             color_mask: Default::default(),
             stencil: None,
+            srgb_space: false,
+            point_size_available: true,
         }
     }
 }
@@ -436,9 +452,9 @@ impl Default for StencilOptions {
 
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DrawPrimitive {
+    Points,
     Lines,
     LineStrip,
-    Points,
     #[default]
     Triangles,
     TriangleStrip,

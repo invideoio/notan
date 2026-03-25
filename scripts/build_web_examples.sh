@@ -1,0 +1,1 @@
+cargo xtask examples web --release

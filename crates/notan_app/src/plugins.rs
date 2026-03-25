@@ -136,11 +136,11 @@ impl Plugins {
 
     /// Remove the plugin of the type passed
     pub fn remove<T: Plugin + 'static>(&mut self) {
-        self.map.remove(&TypeId::of::<T>());
+        self.map.shift_remove(&TypeId::of::<T>());
     }
 
     /// Returns the plugin of the type passed
-    pub fn get<T: Plugin + 'static>(&self) -> Option<Ref<T>> {
+    pub fn get<T: Plugin + 'static>(&self) -> Option<Ref<'_, T>> {
         self.map
             .get(&TypeId::of::<T>())?
             .downcast_ref::<RefCell<T>>()
@@ -148,7 +148,7 @@ impl Plugins {
     }
 
     /// Returns the plugin of the type passed as mutable reference
-    pub fn get_mut<T: Plugin + 'static>(&self) -> Option<RefMut<T>> {
+    pub fn get_mut<T: Plugin + 'static>(&self) -> Option<RefMut<'_, T>> {
         self.map
             .get(&TypeId::of::<T>())?
             .downcast_ref::<RefCell<T>>()
@@ -237,10 +237,7 @@ impl Plugins {
 
 #[allow(unused_variables)]
 /// A plugin allow the user to extend or alter the application
-pub trait Plugin
-where
-    Self: Send + Sync,
-{
+pub trait Plugin {
     /// Executed before the application loop
     fn init(
         &mut self,

@@ -1,6 +1,97 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## v0.14.0 - 27/12/2025
+
+- Updated `winit` to `0.30`.
+- Fixed build issues on Windows and macOS.
+- Fixed compatibility with CMake 4.0+.
+- Propagated the `serde` feature to `notan_egui`.
+- Set `shaderc` as default shader transpiler.
+
+## v0.13.0 - 29/03/2025
+
+- Updated EGUI up to `0.31`.
+- Fixed EGUI input scaling when the browser is zoomed in/out.
+- Added support for `GL_POINTS` and `gl_PointSize` (point rendering).
+- Renamed the point size flags (`point_size` -> `point_size_enabled` -> `point_size_available`) and enabled it by default.
+- Added `Rgb24` texture format.
+- Added `Rect::contains`.
+- Limited `InnerBuffer::global_ubo` size to avoid blowing up the UBO.
+- WebGL power preferences now try to pick the best GPU available.
+- Removed `Send + Sync` from plugins (they’re not sent across threads anyway).
+- Fixed a text transform order issue.
+- Lots of dependency updates, formatting and clippy fixes.
+
+## v0.12.1 - 08/06/2024
+
+- Updated EGUI to `0.27`.
+- The readme has gifs again.
+- Added `app.mouse.clean_button_state` to clean the state of a button.
+- Added `xtask` to run project's script like building the examples for web.
+- Fixed an issue with EGUI that makes text looks blurry.
+
+## v0.12.0 - 19/02/2024
+
+- Updated EGUI to `0.26`.
+- Removed `egui::plugin::Output.needs_repaint()`, now is only used internally and not exposed to users.
+- Exposed `notan::draw::DrawBuilder` allowing custom builders.
+- Exposed `notan::app::AppTimer`.
+- Added `draw.point` allowing to draw points. Check `examples/draw_point.rs`.
+- Allow to compile the crate without a backend selected.
+- Changed `WindowConfig::set_canvas_id` to `WindowConfig::set_app_id` and is not available for wayland too.
+- Fixed `app.request_frame()` when using lazy lopps on Window OS.
+
+## v0.11.0 - 18/10/2023
+
+- Added traits `Serialize` and `Deserialize` to `Color` with the feature `serde` enabled.
+- Updated EGUI to `0.23`.
+- Fixed an error acquiring the GL Context due required samples configuration.
+
+## v0.10.0 - 11/09/2023
+
+- Added `WindowConfig::set_position` to set x/y position before creating the window.
+- Changed `Renderer.begin` uses `Option<ClearOption>` instead of `Option<&ClearOption>`.
+- Changed sizes and positions for Window and Textures from `i32` to `u32`.
+- Added `AppTimer::elapsed` to return time since init as `Duration`.
+- Changed `AppTimer::time_since_init` to `AppTimer::elapsed_f32`.
+- Changed `WindowConfig` setter method to use the prefix `set_`. 
+- Removed deprecated `Mouse::local_position`.
+- Removed deprecated `mat3_screen_to_local`, `mat3_local_to_screen`, `mat3_local_to_local`.
+- Updated dependencies to latest versions. 
+- Enabled compilation with `--no-default-features` excluding shader compilation macros.
+- Deserializing `AtlasFrame` uses a default `pivot` if is empty.
+- Added `WindowConfig::set_window_icon_data`.
+- Added `WindowConfig::set_taskbar_icon_data`.
+- Added example `window_icon_from_raw.rs`.
+- Changed `glsl_layout` dependency for `crevice`.
+- Updated EGUI to `0.22`.
+- Fixed `egui` panic when custom font are set.  
+- Fixed slow scroll speed. 
+- Fixed `egui needs_repaint` not working right in some situations.
+- Fixed the order of the matrix multiplication for `Draw` methods.
+- Improved error messages when `WebGL` and `WebGL2` contexts cannot be adquired.
+- Fixed `Buffer` to allow reuse `Uniform Buffers` between pipelines.
+- Changed some noisy logs from `debug` to `trace`.
+- Added `Clone` to `Random`.
+- Reset values of `Mouse::wheel_delta` when the user stops scrolling.
+- Added `Mouse::is_scrolling`.
+- App's state can use now lifetimes, ie: `State<'n>`.
+- Added `Clone` to `AssetsList`.
+- The `image` crate on `notan_graphics` is only used when `texture_to_file` is enabled.
+- Added `WindowBackend::set_cursor_position`, `Event::MouseMotion` and `Mouse::is_moving`.
+- Added new example `window_initial_position.rs`.
+- Added mipmap and texture wrapping settings to `RenderTextureBuilder`.
+- Added new example `texture_params`.
+- Added new example `renderer_stencil`.
+- Fixed mouse wheel scroll being ignored when moving the mouse at same time
+- Added alt mouse wheel scrolling code to example
+- Fixed `set_multisamples`. It is no longer being ignored for winit backend
+- Fixed blurry text on egui when using on desktop
+- Fixed mono channel audio playing in half of time set for the audio length. 
+- Added `is_focused()` for winit backend
+- Added `window_focus` example
+
 ## v0.9.5 - 19/03/2023
 
 - Increased mouse wheel scroll speed on native platforms.

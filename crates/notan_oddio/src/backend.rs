@@ -22,15 +22,16 @@ enum AudioHandle {
     Cycle(CycleHandle),
 }
 
+#[allow(mismatched_lifetime_syntaxes)]
 impl AudioHandle {
-    fn as_stop(&mut self) -> StopControl {
+    fn as_stop(&mut self) -> StopControl<'_> {
         match self {
             AudioHandle::Frame(h) => h.control::<Stop<_>, _>(),
             AudioHandle::Cycle(h) => h.control::<Stop<_>, _>(),
         }
     }
 
-    fn as_gain(&mut self) -> GainControl {
+    fn as_gain(&mut self) -> GainControl<'_> {
         match self {
             AudioHandle::Frame(h) => h.control::<Gain<_>, _>(),
             AudioHandle::Cycle(h) => h.control::<Gain<_>, _>(),
@@ -239,8 +240,9 @@ impl InnerBackend {
                     oddio::run(&mixer, sample_rate.0, frames);
                 },
                 |err| {
-                    log::error!("{:?}", err);
+                    log::error!("{err:?}");
                 },
+                None,
             )
             .map_err(|e| format!("{e:?}"))?;
 
@@ -306,21 +308,21 @@ impl InnerBackend {
 
     fn pause(&mut self, sound: u64) {
         match self.sounds.get_mut(&sound) {
-            None => log::warn!("Cannot pause sound, invalid id: {}", sound),
+            None => log::warn!("Cannot pause sound, invalid id: {sound}"),
             Some(s) => s.handle.as_stop().pause(),
         }
     }
 
     fn resume(&mut self, sound: u64) {
         match self.sounds.get_mut(&sound) {
-            None => log::warn!("Cannot resume sound, invalid id: {}", sound),
+            None => log::warn!("Cannot resume sound, invalid id: {sound}"),
             Some(s) => s.handle.as_stop().resume(),
         }
     }
 
     fn stop(&mut self, sound: u64) {
         match self.sounds.get_mut(&sound) {
-            None => log::warn!("Cannot stop sound, invalid id: {}", sound),
+            None => log::warn!("Cannot stop sound, invalid id: {sound}"),
             Some(s) => s.handle.as_stop().stop(),
         }
     }
@@ -343,7 +345,7 @@ impl InnerBackend {
 
     fn set_volume(&mut self, sound: u64, volume: f32) {
         match self.sounds.get_mut(&sound) {
-            None => log::warn!("Cannot set volume for sound: {}", sound),
+            None => log::warn!("Cannot set volume for sound: {sound}"),
             Some(s) => {
                 s.volume = volume;
                 s.handle.as_gain().set_gain(volume_as_gain(volume));
@@ -367,11 +369,7 @@ impl InnerBackend {
             self.sounds.remove(id);
         });
 
-        log::debug!(
-            "Audio resources cleaned: Sources({:?}) - Sounds({:?})",
-            sources,
-            sounds,
-        );
+        log::trace!("Audio resources cleaned: Sources({sources:?}) - Sounds({sounds:?})",);
     }
 }
 
@@ -379,7 +377,7 @@ impl InnerBackend {
 // with headphones I can hear -90, so I opted to to -100
 fn volume_as_gain(volume: f32) -> f32 {
     let v = 1.0 - volume;
-    v * 100.0 * -1.0
+    -(v * 100.0)
 }
 
 #[cfg(test)]
