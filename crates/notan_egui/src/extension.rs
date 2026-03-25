@@ -176,45 +176,39 @@ impl EguiExtension {
                 .entry(id)
                 .or_insert_with(|| create_empty_texture(device, width as _, height as _).unwrap());
 
-            match &delta.image {
-                egui::ImageData::Color(image) => {
-                    debug_assert_eq!(
-                        image.width() * image.height(),
-                        image.pixels.len(),
-                        "Mismatch between texture size and texel count"
-                    );
+            let egui::ImageData::Color(image) = &delta.image;
 
-                    let data = bytemuck::cast_slice(image.pixels.as_ref());
-                    update_texture(
-                        device,
-                        texture,
-                        data,
-                        x as _,
-                        y as _,
-                        width as _,
-                        height as _,
-                    )?
-                }
-                _ => unreachable!("Font atlas is always Color since egui 0.32"),
-            }
+            debug_assert_eq!(
+                image.width() * image.height(),
+                image.pixels.len(),
+                "Mismatch between texture size and texel count"
+            );
+
+            let data = bytemuck::cast_slice(image.pixels.as_ref());
+            update_texture(
+                device,
+                texture,
+                data,
+                x as _,
+                y as _,
+                width as _,
+                height as _,
+            )?;
 
             return Ok(());
         }
 
         // create a new texture
-        let texture = match &delta.image {
-            egui::ImageData::Color(image) => {
-                debug_assert_eq!(
-                    image.width() * image.height(),
-                    image.pixels.len(),
-                    "Mismatch between texture size and texel count"
-                );
+        let egui::ImageData::Color(image) = &delta.image;
 
-                let data = bytemuck::cast_slice(image.pixels.as_ref());
-                create_texture(device, data, width as _, height as _)?
-            }
-            _ => unreachable!("Font atlas is always Color since egui 0.32"),
-        };
+        debug_assert_eq!(
+            image.width() * image.height(),
+            image.pixels.len(),
+            "Mismatch between texture size and texel count"
+        );
+
+        let data = bytemuck::cast_slice(image.pixels.as_ref());
+        let texture = create_texture(device, data, width as _, height as _)?;
 
         self.textures.insert(id, texture);
         Ok(())
