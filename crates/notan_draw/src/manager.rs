@@ -259,11 +259,11 @@ fn blended_pip(
     pip: &Pipeline,
     blend_mode: Option<BlendMode>,
     alpha_mode: Option<BlendMode>,
-    is_rt: bool,
+    _is_rt: bool,
 ) -> Option<Pipeline> {
     // commented the following code because blank frames were shown
     // drawing to a rt needs over mode
-    // let alpha_mode = alpha_mode.or(if is_rt { Some(BlendMode::OVER) } else { None });
+    // let alpha_mode = alpha_mode.or(if _is_rt { Some(BlendMode::OVER) } else { None });
     let new_cbm = pip.options.color_blend != blend_mode;
     let new_abm = pip.options.alpha_blend != alpha_mode;
     if new_cbm || new_abm {

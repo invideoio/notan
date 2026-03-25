@@ -88,21 +88,18 @@ impl GlowBackend {
         Self::from(gl, "opengl_es")
     }
 
-    fn get_default_frame_buffer(gl: &Context) -> Option<Framebuffer> {
-        let mut default_gl_framebuffer: Option<Framebuffer> = None;
+    fn get_default_frame_buffer(_gl: &Context) -> Option<Framebuffer> {
         #[cfg(target_os = "ios")]
         {
             let default_gl_framebuffer_binding = unsafe {
-                gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) as u32
+                _gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) as u32
             };
-            if default_gl_framebuffer_binding == 0 {
-                return None;
+            if default_gl_framebuffer_binding != 0 {
+                let non_zero_u32 = NonZeroU32::new(default_gl_framebuffer_binding).unwrap();
+                return Some(NativeFramebuffer(non_zero_u32));
             }
-            let non_zero_u32 = NonZeroU32::new(default_gl_framebuffer_binding).unwrap();
-            let framebuffer = NativeFramebuffer(non_zero_u32);
-            default_gl_framebuffer = Some(framebuffer);
         }
-        return default_gl_framebuffer;
+        None
     }
 
     fn from(gl: Context, api: &str) -> Result<Self, String> {
