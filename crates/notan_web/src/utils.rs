@@ -165,7 +165,7 @@ pub fn canvas_position_from_touch(
     canvas_pos(canvas, evt.client_x(), evt.client_y())
 }
 
-fn canvas_pos(canvas: &HtmlCanvasElement, client_x: i32, client_y: i32) -> (f32, f32) {
+fn canvas_pos(canvas: &HtmlCanvasElement, client_x: f64, client_y: f64) -> (f32, f32) {
     let client_x = client_x as f32;
     let client_y = client_y as f32;
     let rect = canvas.get_bounding_client_rect();
